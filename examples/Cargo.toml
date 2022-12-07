@@ -1,0 +1,4 @@
+[[example]]
+name = "utils-rs-examples"
+version = "0.1.0"
+edition = "2021"

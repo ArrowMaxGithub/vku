@@ -1,0 +1,84 @@
+use anyhow::Result;
+use log::error;
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+use std::io::Write;
+use winit::dpi::LogicalSize;
+use winit::event::{Event, VirtualKeyCode, WindowEvent};
+use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
+use winit::window::WindowBuilder;
+
+use vku::{VkInit, VkInitCreateInfo};
+
+pub fn main() {
+    init_logger();
+    if let Err(err) = try_main() {
+        err.chain().for_each(|cause| error!("{}", cause));
+        std::process::exit(1);
+    }
+}
+
+pub fn try_main() -> Result<()> {
+    let event_loop: EventLoop<()> = EventLoopBuilder::default().build();
+    let size = [800_u32, 600_u32];
+    let window = WindowBuilder::new().with_inner_size(LogicalSize{width: size[0], height: size[1]}).build(&event_loop)?;
+    let display_handle = window.raw_display_handle();
+    let window_handle = window.raw_window_handle();
+    let create_info = VkInitCreateInfo::debug_vk_1_3();
+    
+    let vk_init = VkInit::new(&display_handle, &window_handle, size, &create_info)?;
+
+    //Polled event loop that exits on [ESC] or window close
+    event_loop.run(move |new_event, _, control_flow| {
+        *control_flow = ControlFlow::Poll;
+        match new_event {
+            Event::WindowEvent { event, .. } => match event {
+                WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                WindowEvent::KeyboardInput { input, .. } => {
+                    if let Some(code) = input.virtual_keycode {
+                        match code {
+                            VirtualKeyCode::Escape => *control_flow = ControlFlow::Exit,
+                            _ => (),
+                        }
+                    }
+                }
+                _ => (),
+            },
+
+            Event::LoopDestroyed => {
+                vk_init.destroy().unwrap();
+            }
+
+            _ => (),
+        }
+    });
+}
+
+fn init_logger() {
+    let env = env_logger::Env::default()
+        .write_style_or("RUST_LOG_STYLE", "always")
+        .filter_or("RUST_LOG", "trace");
+
+    env_logger::Builder::from_env(env)
+        .target(env_logger::Target::Stderr)
+        .format(|buf, record| {
+            let mut style = buf.style();
+
+            match record.level() {
+                log::Level::Info => style.set_color(env_logger::fmt::Color::Green),
+                log::Level::Warn => style.set_color(env_logger::fmt::Color::Yellow),
+                log::Level::Error => style.set_color(env_logger::fmt::Color::Red),
+                _ => style.set_color(env_logger::fmt::Color::White),
+            };
+
+            let timestamp = buf.timestamp();
+
+            writeln!(
+                buf,
+                "{:<20} : {:<5} : {}",
+                timestamp,
+                style.value(record.level()),
+                record.args()
+            )
+        })
+        .init();
+}
