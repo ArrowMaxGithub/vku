@@ -115,7 +115,7 @@
 //!     gl_PointSize  = i_pos_size.w;
 //! }"#).unwrap();
 //! 
-//! VkInit::compile_all_shaders(&src_dir_path, &target_dir_path, debug_text_result).unwrap();
+//! vku::compile_all_shaders(&src_dir_path, &target_dir_path, debug_text_result).unwrap();
 //!```
 
 #[macro_use]
@@ -136,6 +136,7 @@ pub use create_info::VkInitCreateInfo;
 pub use init::{CmdType, PhysicalDeviceInfo, SurfaceInfo, VkInit, VkInitInfo};
 pub use vma_buffer::VMABuffer;
 pub use vma_image::VMAImage;
+pub use shader::compile_all_shaders;
 
 // Function cannot be found inside doc test functions with this feature gate.
 // This is a known bug with rust atm.

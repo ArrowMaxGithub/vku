@@ -678,6 +678,7 @@ impl VkInit {
         let surface =
             ash_window::create_surface(entry, instance, *display_handle, *window_handle, None)?;
         let formats = loader.get_physical_device_surface_formats(*physical_device, surface)?;
+        
         let format = *formats
             .iter()
             .find(|format| format.format == create_info.surface_format)
@@ -695,7 +696,9 @@ impl VkInit {
         let capabilities =
             loader.get_physical_device_surface_capabilities(*physical_device, surface)?;
 
-        if create_info.frames_in_flight > capabilities.max_image_count {
+        if capabilities.max_image_count != 0 && create_info.frames_in_flight > capabilities.max_image_count {
+            let max_frame = capabilities.max_image_count;
+            trace!("max supported frames in flight: {max_frame}");
             return Err(anyhow!(VkInitError::InsufficientFramesInFlightSupported));
         }
 

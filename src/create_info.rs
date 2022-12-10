@@ -65,7 +65,7 @@ impl VkInitCreateInfo {
                 .dynamic_rendering(true)
                 .build(),
             additional_device_extensions: vec![],
-            surface_format: Format::R8G8B8A8_UNORM,
+            surface_format: if cfg!(target_os = "linux") {Format::B8G8R8A8_UNORM} else {Format::R8G8B8A8_UNORM},
             frames_in_flight: 3,
             present_mode: PresentModeKHR::IMMEDIATE,
         }
@@ -94,7 +94,7 @@ impl VkInitCreateInfo {
                 .dynamic_rendering(true)
                 .build(),
             additional_device_extensions: vec![],
-            surface_format: Format::R8G8B8A8_UNORM,
+            surface_format: if cfg!(target_os = "linux") {Format::B8G8R8A8_UNORM} else {Format::R8G8B8A8_UNORM},
             frames_in_flight: 3,
             present_mode: PresentModeKHR::IMMEDIATE,
         }
