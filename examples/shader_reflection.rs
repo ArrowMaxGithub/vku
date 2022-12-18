@@ -18,8 +18,9 @@ fn try_main() -> Result<()> {
     let src_dir_path = Path::new("./assets/shaders/src/");
     let target_dir_path = Path::new("./assets/shaders/compiled_shaders/");
 
-    let src_glsl_path = src_dir_path.join(Path::new("example.glsl"));
-    let src_vert_path = src_dir_path.join(Path::new("example.vert"));
+    let src_egui_fragment_shader_path = src_dir_path.join(Path::new("egui_fragment.frag"));
+    let compiled_egui_fragment_shader_path =
+        target_dir_path.join(Path::new("egui_fragment.frag.spv"));
 
     //Remove previous runs if necessary
     std::fs::remove_dir_all(&src_dir_path);
@@ -29,38 +30,42 @@ fn try_main() -> Result<()> {
     std::fs::create_dir_all(&target_dir_path)?;
 
     std::fs::write(
-        &src_glsl_path,
-        r#"
-    struct Example{
-        float pos_x;
-        float pos_y;
-        float pos_z;
-        float size;
-    
-        float color;
-    };"#,
-    )?;
-
-    std::fs::write(
-        &src_vert_path,
+        &src_egui_fragment_shader_path,
         r#"
     #version 450
-    #include "./assets/shaders/src/example.glsl" //path relative to the .exe calling VkInit::compile_all_shaders
-    
-    layout(location = 0) in vec4 i_pos_size;
-    layout(location = 1) in vec4 i_col;
-    
-    layout(location = 0) out vec4 o_col;
-    
+
+    layout(location = 0) in vec4 o_color;
+    layout(location = 1) in vec2 o_uv;
+
+    layout(binding = 0, set = 0) uniform sampler2D fonts_sampler;
+
+    layout(location = 0) out vec4 final_color;
+
+    vec3 srgb_gamma_from_linear(vec3 rgb) {
+        bvec3 cutoff = lessThan(rgb, vec3(0.0031308));
+        vec3 lower = rgb * vec3(12.92);
+        vec3 higher = vec3(1.055) * pow(rgb, vec3(1.0 / 2.4)) - vec3(0.055);
+        return mix(higher, lower, vec3(cutoff));
+    }
+
+    vec4 srgba_gamma_from_linear(vec4 rgba) {
+        return vec4(srgb_gamma_from_linear(rgba.rgb), rgba.a);
+    }
+
     void main() {
-        o_col = i_col;
-        gl_Position = vec4(i_pos_size.xyz, 1.0);
-        gl_PointSize  = i_pos_size.w;
+    #if SRGB_TEXTURES
+        vec4 tex = srgba_gamma_from_linear(texture(fonts_sampler, o_uv));
+    #else
+        vec4 tex = texture(fonts_sampler, o_uv);
+    #endif
+
+        final_color = o_color * tex;
     }"#,
     )?;
 
     vku::shader::compile_all_shaders(&src_dir_path, &target_dir_path, true)?;
-
+    let spv_data = std::fs::read(&compiled_egui_fragment_shader_path)?;
+    let _ = vku::reflect_spirv_shader(&spv_data)?;
     Ok(())
 }
 

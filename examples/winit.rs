@@ -1,7 +1,8 @@
 use anyhow::Result;
-use log::error;
+use log::{error, info, trace};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use std::io::Write;
+use std::time::Instant;
 use winit::dpi::LogicalSize;
 use winit::event::{Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
@@ -20,17 +21,37 @@ pub fn main() {
 pub fn try_main() -> Result<()> {
     let event_loop: EventLoop<()> = EventLoopBuilder::default().build();
     let size = [800_u32, 600_u32];
-    let window = WindowBuilder::new().with_inner_size(LogicalSize{width: size[0], height: size[1]}).build(&event_loop)?;
+    let window = WindowBuilder::new()
+        .with_inner_size(LogicalSize {
+            width: size[0],
+            height: size[1],
+        })
+        .build(&event_loop)?;
     let display_handle = window.raw_display_handle();
     let window_handle = window.raw_window_handle();
-    let create_info = VkInitCreateInfo::debug_vk_1_3();
-    
+    let create_info = if cfg!(debug_assertions) {
+        VkInitCreateInfo::debug_vk_1_3()
+    } else {
+        VkInitCreateInfo::release_vk_1_3()
+    };
+
     let vk_init = VkInit::new(&display_handle, &window_handle, size, &create_info)?;
+
+    let mut start_time = Instant::now();
 
     //Polled event loop that exits on [ESC] or window close
     event_loop.run(move |new_event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
         match new_event {
+            Event::MainEventsCleared => {
+                let end_time = Instant::now();
+                let delta = end_time - start_time;
+                let delta_ms = delta.as_nanos() as f32 / 1000.0 / 1000.0;
+                let fps = 1.0 / delta_ms * 1000.0;
+                start_time = end_time;
+                info!("frame ms: {delta_ms:.2}ms | fps: {fps:.0}");
+            }
+
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                 WindowEvent::KeyboardInput { input, .. } => {

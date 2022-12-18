@@ -3,9 +3,9 @@ use crate::imports::*;
 /// Creation parameters for [VkInit](crate::init::VkInit).
 ///
 /// Windowing extensions are enabled automatically depending on the chosen platform.
-/// 
-/// [Dynamic rendering](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_dynamic_rendering.html) 
-/// and [Synchronization2](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_synchronization2.html) 
+///
+/// [Dynamic rendering](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_dynamic_rendering.html)
+/// and [Synchronization2](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_synchronization2.html)
 /// are enabled by default due to being awesome extensions.
 pub struct VkInitCreateInfo {
     pub app_name: String,
@@ -40,7 +40,7 @@ impl VkInitCreateInfo {
     /// - best practices and synchronization checks enabled
     /// - log level: >= warning
     /// - log messages: validation and performance
-    /// 
+    ///
     /// Synchronization2 and dynamic rendering extensions enabled by default.
     pub fn debug_vk_1_3() -> Self {
         Self {
@@ -65,7 +65,11 @@ impl VkInitCreateInfo {
                 .dynamic_rendering(true)
                 .build(),
             additional_device_extensions: vec![],
-            surface_format: if cfg!(target_os = "linux") {Format::B8G8R8A8_UNORM} else {Format::R8G8B8A8_UNORM},
+            surface_format: if cfg!(target_os = "linux") {
+                Format::B8G8R8A8_UNORM
+            } else {
+                Format::R8G8B8A8_UNORM
+            },
             frames_in_flight: 3,
             present_mode: PresentModeKHR::IMMEDIATE,
         }
@@ -74,7 +78,7 @@ impl VkInitCreateInfo {
     /// Suitable for release builds against Vulkan 1.3:
     /// - no validation
     /// - no logging
-    /// 
+    ///
     /// Synchronization2 and dynamic rendering extensions enabled by default.
     pub fn release_vk_1_3() -> Self {
         Self {
@@ -94,7 +98,11 @@ impl VkInitCreateInfo {
                 .dynamic_rendering(true)
                 .build(),
             additional_device_extensions: vec![],
-            surface_format: if cfg!(target_os = "linux") {Format::B8G8R8A8_UNORM} else {Format::R8G8B8A8_UNORM},
+            surface_format: if cfg!(target_os = "linux") {
+                Format::B8G8R8A8_UNORM
+            } else {
+                Format::R8G8B8A8_UNORM
+            },
             frames_in_flight: 3,
             present_mode: PresentModeKHR::IMMEDIATE,
         }

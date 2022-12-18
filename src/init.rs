@@ -2,6 +2,10 @@ use crate::create_info::VkInitCreateInfo;
 use crate::errors::VkInitError;
 use crate::imports::*;
 
+pub trait VkDestroy {
+    fn destroy(&self, vk_init: &VkInit) -> Result<()>;
+}
+
 /// Wrapper around 'static' vulkan objects (instance, device etc.) and utility functions for ease of use.
 ///
 /// Handles initialization and destruction of Vulkan objects and offers utility functions for:
@@ -36,9 +40,9 @@ pub struct VkInit {
 }
 
 /// Abstraction over queue capability and command types since dedicated queues may not be available.
-/// 
+///
 /// [get_queue](VkInit::get_queue) will fallback to the guarenteed unified queue if necessary.
-/// 
+///
 ///  ```
 /// # extern crate winit;
 /// # use vku::*;
@@ -50,7 +54,7 @@ pub struct VkInit {
 /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
 /// # let create_info = VkInitCreateInfo::default();
 /// let init = VkInit::new(&display_handle, &window_handle, size, &create_info).unwrap();
-/// 
+///
 /// let (compute_queue, compute_family_index) = init.get_queue(CmdType::Compute);
 pub enum CmdType {
     /// Graphics | Transfer | Compute
@@ -90,6 +94,7 @@ pub struct PhysicalDeviceInfo {
 pub struct SurfaceInfo {
     pub min_extent: Extent2D,
     pub max_extent: Extent2D,
+    pub current_extent: Extent2D,
     pub present_mode: PresentModeKHR,
     pub format: SurfaceFormatKHR,
     pub pre_transform: SurfaceTransformFlagsKHR,
@@ -112,7 +117,7 @@ impl VkInit {
     /// use winit::dpi::LogicalSize;
     /// use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
     /// use vku::{VkInitCreateInfo, VkInit};
-    /// 
+    ///
     /// let event_loop: EventLoop<()> = EventLoopBuilder::default().build();
     /// let size = [800_u32, 600_u32];
     /// let window = WindowBuilder::new()
@@ -121,7 +126,7 @@ impl VkInit {
     /// let display_handle = window.raw_display_handle();
     /// let window_handle = window.raw_window_handle();
     /// let create_info = VkInitCreateInfo::default();
-    /// 
+    ///
     /// let init = VkInit::new(&display_handle, &window_handle, size, &create_info).unwrap();
     /// ```
     pub fn new(
@@ -130,7 +135,6 @@ impl VkInit {
         window_size: [u32; 2],
         create_info: &VkInitCreateInfo,
     ) -> Result<Self> {
-        info!("VkInit start");
         unsafe {
             let window_extent = Extent2D {
                 width: window_size[0],
@@ -155,6 +159,7 @@ impl VkInit {
                 &instance,
                 display_handle,
                 window_handle,
+                window_size,
                 &physical_device,
                 create_info,
             )?;
@@ -255,12 +260,78 @@ impl VkInit {
 
         Ok(fence)
     }
-    
+
+    /// Creates a Vec of signaled fence.
+    pub fn create_fences(&self, count: usize) -> Result<Vec<Fence>> {
+        let mut fences = Vec::new();
+        for _ in 0..count {
+            let create_info = FenceCreateInfo::builder().flags(FenceCreateFlags::SIGNALED);
+            let fence = unsafe { self.device.create_fence(&create_info, None)? };
+            fences.push(fence);
+        }
+
+        Ok(fences)
+    }
+
+    pub fn destroy_fence(&self, fence: &Fence) -> Result<()> {
+        unsafe {
+            self.device.destroy_fence(*fence, None);
+        }
+
+        Ok(())
+    }
+
     pub fn create_semaphore(&self) -> Result<Semaphore> {
         let create_info = SemaphoreCreateInfo::default();
         let semaphore = unsafe { self.device.create_semaphore(&create_info, None)? };
 
         Ok(semaphore)
+    }
+
+    pub fn create_semaphores(&self, count: usize) -> Result<Vec<Semaphore>> {
+        let mut semaphores = Vec::new();
+        for _ in 0..count {
+            let create_info = SemaphoreCreateInfo::default();
+            let semaphore = unsafe { self.device.create_semaphore(&create_info, None)? };
+            semaphores.push(semaphore);
+        }
+
+        Ok(semaphores)
+    }
+
+    pub fn destroy_semaphore(&self, semaphore: &Semaphore) -> Result<()> {
+        unsafe {
+            self.device.destroy_semaphore(*semaphore, None);
+        }
+
+        Ok(())
+    }
+
+    pub fn destroy_cmd_pool(&self, pool: &CommandPool) -> Result<()> {
+        unsafe {
+            self.device.destroy_command_pool(*pool, None);
+        }
+
+        Ok(())
+    }
+
+    /// Acquires image for frame ```frame``` and signals sempahore ```acquire_img_semaphore```.
+    pub fn acquire_next_swapchain_image(
+        &self,
+        acquire_img_semaphore: Semaphore,
+        frame: usize,
+    ) -> Result<(Image, ImageView)> {
+        unsafe {
+            self.swapchain_loader.acquire_next_image(
+                self.swapchain,
+                u64::MAX,
+                acquire_img_semaphore,
+                Fence::null(),
+            )?;
+        }
+        let swapchain_image = self.swapchain_images[frame];
+        let swapchain_image_view = self.swapchain_image_views[frame];
+        Ok((swapchain_image, swapchain_image_view))
     }
 
     pub fn begin_cmd_buffer(&self, cmd_buffer: &CommandBuffer) -> Result<()> {
@@ -273,6 +344,41 @@ impl VkInit {
         };
 
         Ok(())
+    }
+
+    pub fn begin_rendering(&self, swapchain_image_view: &ImageView, cmd_buffer: &CommandBuffer) {
+        let clear_value = ClearValue {
+            color: ClearColorValue {
+                float32: [0.0, 0.0, 0.0, 0.0],
+            },
+        };
+        let render_area = Rect2D::builder()
+            .offset(Offset2D { x: 0, y: 0 })
+            .extent(self.info.surface_info.current_extent);
+
+        let color_attachment_info = [RenderingAttachmentInfo::builder()
+            .image_view(*swapchain_image_view)
+            .image_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+            .load_op(AttachmentLoadOp::CLEAR)
+            .store_op(AttachmentStoreOp::STORE)
+            .clear_value(clear_value)
+            .build()];
+
+        let rendering_begin_info = RenderingInfo::builder()
+            .render_area(*render_area)
+            .layer_count(1)
+            .color_attachments(&color_attachment_info);
+
+        unsafe {
+            self.device
+                .cmd_begin_rendering(*cmd_buffer, &rendering_begin_info);
+        }
+    }
+
+    pub fn end_rendering(&self, cmd_buffer: &CommandBuffer) {
+        unsafe {
+            self.device.cmd_end_rendering(*cmd_buffer);
+        }
     }
 
     pub fn end_and_submit_cmd_buffer(
@@ -309,6 +415,24 @@ impl VkInit {
         Ok(())
     }
 
+    pub fn wait_on_fence_and_reset(
+        &self,
+        fence: &Fence,
+        cmd_buffers: &[&CommandBuffer],
+    ) -> Result<()> {
+        unsafe {
+            self.device.wait_for_fences(&[*fence], true, u64::MAX)?;
+            self.device.reset_fences(&[*fence])?;
+            for cmd_buffer in cmd_buffers {
+                self.device.reset_command_buffer(
+                    **cmd_buffer,
+                    CommandBufferResetFlags::RELEASE_RESOURCES,
+                )?;
+            }
+        }
+        Ok(())
+    }
+
     pub fn cmd_pipeline_barrier2(
         &self,
         cmd_buffer: &CommandBuffer,
@@ -326,6 +450,31 @@ impl VkInit {
         }
     }
 
+    pub fn present(&self, rendering_complete_semaphore: &Semaphore, frame: usize) -> Result<()> {
+        let swapchains = [self.swapchain];
+        let image_indices = [frame as u32];
+        let present_info = ash::vk::PresentInfoKHR::builder()
+            .wait_semaphores(&[*rendering_complete_semaphore])
+            .swapchains(&swapchains)
+            .image_indices(&image_indices)
+            .build();
+
+        unsafe {
+            self.swapchain_loader
+                .queue_present(self.unified_queue, &present_info)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn wait_device_idle(&self) -> Result<()> {
+        unsafe {
+            self.device.device_wait_idle()?;
+        }
+
+        Ok(())
+    }
+
     /// Gets the queue and queue family index for the given [CmdType].
     ///
     /// If there is e.g. no dedicated compute queue, this will fallback to the guarenteed unified queue.
@@ -341,22 +490,48 @@ impl VkInit {
             ),
             CmdType::Transfer => {
                 //TODO: Implement as if-let chains once stabilized
-                if self.info.physical_device_info.transfer_queue_family_index.is_some()
-                && self.transfer_queue.is_some(){
-                    (self.transfer_queue.unwrap(), self.info.physical_device_info.transfer_queue_family_index.unwrap())
-                }
-                else{
-                    (self.unified_queue, self.info.physical_device_info.unified_queue_family_index)
+                if self
+                    .info
+                    .physical_device_info
+                    .transfer_queue_family_index
+                    .is_some()
+                    && self.transfer_queue.is_some()
+                {
+                    (
+                        self.transfer_queue.unwrap(),
+                        self.info
+                            .physical_device_info
+                            .transfer_queue_family_index
+                            .unwrap(),
+                    )
+                } else {
+                    (
+                        self.unified_queue,
+                        self.info.physical_device_info.unified_queue_family_index,
+                    )
                 }
             }
             CmdType::Compute => {
                 //TODO: Implement as if-let chains once stabilized
-                if self.info.physical_device_info.compute_queue_family_index.is_some()
-                && self.compute_queue.is_some(){
-                    (self.compute_queue.unwrap(), self.info.physical_device_info.compute_queue_family_index.unwrap())
-                }
-                else{
-                    (self.unified_queue, self.info.physical_device_info.unified_queue_family_index)
+                if self
+                    .info
+                    .physical_device_info
+                    .compute_queue_family_index
+                    .is_some()
+                    && self.compute_queue.is_some()
+                {
+                    (
+                        self.compute_queue.unwrap(),
+                        self.info
+                            .physical_device_info
+                            .compute_queue_family_index
+                            .unwrap(),
+                    )
+                } else {
+                    (
+                        self.unified_queue,
+                        self.info.physical_device_info.unified_queue_family_index,
+                    )
                 }
             }
         }
@@ -654,14 +829,12 @@ impl VkInit {
     ) -> Result<(Queue, Option<Queue>, Option<Queue>)> {
         let unified_queue =
             device.get_device_queue(physical_device_info.unified_queue_family_index, 0);
-        let transfer_queue = match physical_device_info.transfer_queue_family_index {
-            Some(transfer_index) => Some(device.get_device_queue(transfer_index, 0)),
-            None => None,
-        };
-        let compute_queue = match physical_device_info.compute_queue_family_index {
-            Some(compute_index) => Some(device.get_device_queue(compute_index, 0)),
-            None => None,
-        };
+        let transfer_queue = physical_device_info
+            .transfer_queue_family_index
+            .map(|transfer_index| device.get_device_queue(transfer_index, 0));
+        let compute_queue = physical_device_info
+            .compute_queue_family_index
+            .map(|compute_index| device.get_device_queue(compute_index, 0));
 
         Ok((unified_queue, transfer_queue, compute_queue))
     }
@@ -671,6 +844,7 @@ impl VkInit {
         instance: &Instance,
         display_handle: &RawDisplayHandle,
         window_handle: &RawWindowHandle,
+        window_size: [u32; 2],
         physical_device: &PhysicalDevice,
         create_info: &VkInitCreateInfo,
     ) -> Result<(Surface, SurfaceKHR, SurfaceInfo)> {
@@ -678,7 +852,7 @@ impl VkInit {
         let surface =
             ash_window::create_surface(entry, instance, *display_handle, *window_handle, None)?;
         let formats = loader.get_physical_device_surface_formats(*physical_device, surface)?;
-        
+
         let format = *formats
             .iter()
             .find(|format| format.format == create_info.surface_format)
@@ -696,7 +870,9 @@ impl VkInit {
         let capabilities =
             loader.get_physical_device_surface_capabilities(*physical_device, surface)?;
 
-        if capabilities.max_image_count != 0 && create_info.frames_in_flight > capabilities.max_image_count {
+        if capabilities.max_image_count != 0
+            && create_info.frames_in_flight > capabilities.max_image_count
+        {
             let max_frame = capabilities.max_image_count;
             trace!("max supported frames in flight: {max_frame}");
             return Err(anyhow!(VkInitError::InsufficientFramesInFlightSupported));
@@ -714,6 +890,10 @@ impl VkInit {
         let surface_info = SurfaceInfo {
             min_extent: capabilities.min_image_extent,
             max_extent: capabilities.max_image_extent,
+            current_extent: Extent2D {
+                width: window_size[0],
+                height: window_size[1],
+            },
             present_mode,
             format,
             pre_transform,
@@ -785,19 +965,19 @@ impl VkInit {
     }
 }
 
-impl AsRef<Instance> for VkInit{
+impl AsRef<Instance> for VkInit {
     fn as_ref(&self) -> &Instance {
         &self.instance
     }
 }
 
-impl AsRef<Device> for VkInit{
+impl AsRef<Device> for VkInit {
     fn as_ref(&self) -> &Device {
         &self.device
     }
 }
 
-impl AsRef<Allocator> for VkInit{
+impl AsRef<Allocator> for VkInit {
     fn as_ref(&self) -> &Allocator {
         &self.allocator
     }

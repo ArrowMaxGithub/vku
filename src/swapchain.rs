@@ -5,11 +5,7 @@ impl VkInit {
     ///
     /// Function waits for device_wait_idle before destroying the swapchain.
     /// Images must be transitioned to the appropriate image layout after recreation.
-    pub fn recreate_swapchain(
-        &mut self,
-        size: [u32; 2],
-        frames_in_flight: u32,
-    ) -> Result<()> {
+    pub fn recreate_swapchain(&mut self, size: [u32; 2], frames_in_flight: u32) -> Result<()> {
         unsafe {
             self.device.device_wait_idle()?;
 
@@ -21,7 +17,10 @@ impl VkInit {
                 .destroy_swapchain(self.swapchain, None);
 
             //recreate swapchain
-            let window_extent = Extent2D { width: size[0], height: size[1] };
+            let window_extent = Extent2D {
+                width: size[0],
+                height: size[1],
+            };
             let (swapchain_loader, swapchain) = Self::create_swapchain(
                 &self.instance,
                 &self.device,
@@ -41,6 +40,10 @@ impl VkInit {
             self.swapchain = swapchain;
             self.swapchain_images = swapchain_images;
             self.swapchain_image_views = swapchain_image_views;
+            self.info.surface_info.current_extent = Extent2D {
+                width: size[0],
+                height: size[1],
+            };
         }
 
         Ok(())

@@ -11,6 +11,7 @@ pub struct VMAImage {
     pub image_view: ImageView,
     pub allocation: Allocation,
     pub allocation_info: AllocationInfo,
+    pub current_layout: ImageLayout,
 }
 
 impl VMAImage {
@@ -56,6 +57,7 @@ impl VMAImage {
             allocation,
             allocation_info,
             staging_buffer,
+            current_layout: ImageLayout::UNDEFINED,
         })
     }
 
@@ -84,7 +86,7 @@ impl VMAImage {
     /// let extent = Extent3D{width: 100, height: 100, depth: 1};
     /// let format = Format::R8G8B8A8_UNORM;
     /// let aspect_flags = ImageAspectFlags::COLOR;
-    /// 
+    ///
     /// let image = init.create_empty_image(extent, format, aspect_flags).unwrap();
     pub fn create_empty_image(
         device: &Device,
@@ -131,7 +133,7 @@ impl VMAImage {
     }
 
     /// Sets data for the staging buffer.
-    /// 
+    ///
     /// ```
     /// # extern crate winit;
     /// # use vku::*;
@@ -148,7 +150,7 @@ impl VMAImage {
     /// let aspect_flags = ImageAspectFlags::COLOR;
     /// let image = init.create_empty_image(extent, format, aspect_flags).unwrap();
     /// let data = [42_u32; 100*100];
-    /// 
+    ///
     /// image.set_staging_data(&data).unwrap();
     pub fn set_staging_data<T>(&self, data: &[T]) -> Result<()>
     where
@@ -182,10 +184,9 @@ impl VMAImage {
     /// # let extent = Extent3D{width: 100, height: 100, depth: 1};
     /// # let format = Format::R8G8B8A8_UNORM;
     /// # let aspect_flags = ImageAspectFlags::COLOR;
-    /// let image = init.create_empty_image(extent, format, aspect_flags).unwrap();
+    /// let mut image = init.create_empty_image(extent, format, aspect_flags).unwrap();
     ///
     /// let image_barrier = image.get_image_layout_transition_barrier2(
-    ///     ImageLayout::UNDEFINED,
     ///     ImageLayout::TRANSFER_DST_OPTIMAL,
     ///     None,
     ///     None,
@@ -196,11 +197,11 @@ impl VMAImage {
     ///     &[image_barrier],
     ///     &[]
     ///     );
-    /// 
+    ///
     /// let data = [42_u32; 100*100];
     /// image.set_staging_data(&data).unwrap();
     /// image.enque_copy_from_staging_buffer_to_image(&init, &setup_cmd_buffer);
-    /// 
+    ///
     /// init.end_and_submit_cmd_buffer(
     ///     &setup_cmd_buffer,
     ///     CmdType::Any,
@@ -245,26 +246,30 @@ impl VMAImage {
         }
     }
 
-    /// Gets appropriate ```ImageMemoryBarrier2``` from ```src_layout``` to ```dst_layout``` for this image.
+    /// Gets appropriate ```ImageMemoryBarrier2``` from current layout to ```dst_layout``` for this image.
+    ///
+    /// Current layout is set to ```dst_layout``` after returning this barrier.
     ///
     /// **Defaults**:
     /// - src_queue: 0
     /// - dst_queue: 0
     pub fn get_image_layout_transition_barrier2(
-        &self,
-        src_layout: ImageLayout,
+        &mut self,
         dst_layout: ImageLayout,
         src_queue: Option<u32>,
         dst_queue: Option<u32>,
     ) -> Result<ImageMemoryBarrier2> {
-        image_layout_transitions::get_image_layout_transition_barrier2(
+        let barrier = image_layout_transitions::get_image_layout_transition_barrier2(
             &self.image,
-            src_layout,
+            self.current_layout,
             dst_layout,
             self.aspect_flags,
             src_queue,
             dst_queue,
-        )
+        );
+        self.current_layout = dst_layout;
+
+        barrier
     }
 }
 

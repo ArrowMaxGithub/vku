@@ -2,7 +2,7 @@
 //! Utility crate for kickstarting vulkan development with [shaderc](https://docs.rs/shaderc/0.8.0/shaderc/index.html), [ash](https://docs.rs/ash/0.37.1+1.3.235/ash/index.html) and the [VMA](https://docs.rs/vk-mem-alloc/0.1.1/vk_mem_alloc/index.html) allocator.
 //!
 //! Center module is [Vkinit](crate::init::VkInit), created from [RawHandles](https://docs.rs/raw-window-handle/0.5.0/raw_window_handle/index.html) and [VkInitCreateInfo](crate::create_info::VkInitCreateInfo).
-//! 
+//!
 //! ## Initialization
 //!
 //! [winit](https://docs.rs/winit/0.27.5/winit/index.html):
@@ -22,7 +22,7 @@
 //! let display_handle = window.raw_display_handle();
 //! let window_handle = window.raw_window_handle();
 //! let create_info = VkInitCreateInfo::default();
-//! 
+//!
 //! let init = VkInit::new(&display_handle, &window_handle, size, &create_info).unwrap();
 //! ```
 //!
@@ -68,17 +68,16 @@
 //! let extent = Extent3D{width: 100, height: 100, depth: 1};
 //! let format = Format::R8G8B8A8_UNORM;
 //! let aspect_flags = ImageAspectFlags::COLOR;
-//! let image = init.create_empty_image(extent, format, aspect_flags).unwrap();
+//! let mut image = init.create_empty_image(extent, format, aspect_flags).unwrap();
 //!
 //! let image_barrier = image.get_image_layout_transition_barrier2(
-//!     ImageLayout::UNDEFINED,
 //!     ImageLayout::TRANSFER_DST_OPTIMAL,
 //!     None, None).unwrap(); // No queue family ownership transfer
-//! 
+//!
 //! init.cmd_pipeline_barrier2(
 //!     &setup_cmd_buffer,
 //!     &[image_barrier], &[]); // Only this image barrier, no BufferMemoryBarriers
-//! 
+//!
 //! init.end_and_submit_cmd_buffer(
 //!     &setup_cmd_buffer,
 //!     CmdType::Any,
@@ -114,7 +113,7 @@
 //!     gl_Position = vec4(i_pos_size.xyz, 1.0);
 //!     gl_PointSize  = i_pos_size.w;
 //! }"#).unwrap();
-//! 
+//!
 //! vku::compile_all_shaders(&src_dir_path, &target_dir_path, debug_text_result).unwrap();
 //!```
 
@@ -126,28 +125,19 @@ mod errors;
 mod image_layout_transitions;
 mod imports;
 mod init;
+mod renderer;
 mod swapchain;
+mod vertex;
 mod vma_buffer;
 mod vma_image;
 
 pub mod shader;
 
+pub use ash;
 pub use create_info::VkInitCreateInfo;
-pub use init::{CmdType, PhysicalDeviceInfo, SurfaceInfo, VkInit, VkInitInfo};
+pub use init::{CmdType, PhysicalDeviceInfo, SurfaceInfo, VkDestroy, VkInit, VkInitInfo};
+pub use renderer::{BaseRenderer, Renderer, RendererBarriers, RendererCreateInfo};
+pub use shader::{compile_all_shaders, reflect_spirv_shader, ReflectionResult};
+pub use vertex::*;
 pub use vma_buffer::VMABuffer;
 pub use vma_image::VMAImage;
-pub use shader::compile_all_shaders;
-
-// Function cannot be found inside doc test functions with this feature gate.
-// This is a known bug with rust atm.
-#[cfg(any(test, doctest))]
-pub fn default_test_env() -> (raw_window_handle::RawDisplayHandle, raw_window_handle::RawWindowHandle, VkInitCreateInfo){
-    extern crate winit;
-    let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
-    let window = winit::window::WindowBuilder::default().build(&event_loop).unwrap();
-    let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
-    let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
-    let create_info = VkInitCreateInfo::default();
-
-    (display_handle, window_handle, create_info)
-}

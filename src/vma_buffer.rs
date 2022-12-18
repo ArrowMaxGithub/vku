@@ -46,7 +46,7 @@ impl VMABuffer {
     /// let init = VkInit::new(&display_handle, &window_handle, size, &create_info).unwrap();
     /// let size = 1024_usize;
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
-    /// 
+    ///
     /// let buffer = VMABuffer::create_local_buffer(&init.allocator, size, usage).unwrap();
     /// let buffer_shortcut = init.create_local_buffer(size, usage).unwrap();
     pub fn create_local_buffer(
@@ -84,7 +84,7 @@ impl VMABuffer {
     /// let init = VkInit::new(&display_handle, &window_handle, size, &create_info).unwrap();
     /// let size = 1024_usize;
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
-    /// 
+    ///
     /// let buffer = VMABuffer::create_cpu_to_gpu_buffer(&init.allocator, size, usage).unwrap();
     /// let buffer_shortcut = init.create_cpu_to_gpu_buffer(size, usage).unwrap();
     pub fn create_cpu_to_gpu_buffer(
@@ -126,7 +126,7 @@ impl VMABuffer {
     /// let size = 1024 * size_of::<usize>();
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     /// let buffer = init.create_cpu_to_gpu_buffer(size, usage).unwrap();
-    /// 
+    ///
     /// let data = [42_usize; 1024];
     /// buffer.set_data(&data).unwrap();
     /// ```
@@ -152,7 +152,7 @@ impl VMABuffer {
     ///     uint bar;     
     ///     float data[];     
     /// } my_buffer;
-    /// 
+    ///
     /// ```
     /// ```
     /// # extern crate winit;
@@ -169,7 +169,7 @@ impl VMABuffer {
     /// let size = 2 * size_of::<u32>() + 1024 * size_of::<f32>();
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     /// let buffer = init.create_cpu_to_gpu_buffer(size, usage).unwrap();
-    /// 
+    ///
     /// let start_data = [4_u32, 2_u32];
     /// let data = [42.0; 1024];
     /// buffer.set_data_with_start_data(&start_data, &data).unwrap();
@@ -194,7 +194,7 @@ impl VMABuffer {
     /// - src_offset: 0.
     /// - dst_offset: 0.     
     /// - size: full size of this buffer.
-    /// 
+    ///
     ///```
     /// # extern crate winit;
     /// # use vku::*;
@@ -217,16 +217,16 @@ impl VMABuffer {
     /// let dst_usage = BufferUsageFlags::TRANSFER_DST;
     /// let src_buffer = init.create_cpu_to_gpu_buffer(size, src_usage).unwrap();
     /// let dst_buffer = init.create_cpu_to_gpu_buffer(size, dst_usage).unwrap();
-    /// 
+    ///
     /// let data = [42_u32; 1024];
     /// src_buffer.set_data(&data).unwrap();
-    /// 
+    ///
     /// src_buffer.enqueue_copy_to_buffer(
-    ///     &init, 
-    ///     &cmd_buffer, 
-    ///     &dst_buffer, 
-    ///     None, 
-    ///     None, 
+    ///     &init,
+    ///     &cmd_buffer,
+    ///     &dst_buffer,
+    ///     None,
+    ///     None,
     ///     None
     ///     ).unwrap();
     /// ```
@@ -282,17 +282,18 @@ impl VMABuffer {
     /// let size = 1024 * size_of::<u32>();
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     /// let buffer = init.create_cpu_to_gpu_buffer(size, usage).unwrap();
-    /// 
+    ///
     /// let barrier2 = buffer.get_barrier2(
-    ///     PipelineStageFlags2::HOST, 
+    ///     PipelineStageFlags2::HOST,
     ///     PipelineStageFlags2::FRAGMENT_SHADER,
-    ///     AccessFlags2::HOST_WRITE, 
+    ///     AccessFlags2::HOST_WRITE,
     ///     AccessFlags2::SHADER_READ,
-    ///     None, 
+    ///     None,
     ///     None,
     ///     None
     ///     );
     /// ```
+    #[allow(clippy::too_many_arguments)]
     pub fn get_barrier2(
         &self,
         src_stage: PipelineStageFlags2,
@@ -332,5 +333,34 @@ impl VkInit {
         usage: BufferUsageFlags,
     ) -> Result<VMABuffer> {
         VMABuffer::create_cpu_to_gpu_buffer(&self.allocator, size, usage)
+    }
+
+    /// Shortcut - see [VMABuffer](VMABuffer::create_local_buffer) for example.
+    pub fn create_local_buffers(
+        &self,
+        size: usize,
+        usage: BufferUsageFlags,
+        count: usize,
+    ) -> Result<Vec<VMABuffer>> {
+        let mut buffers = Vec::new();
+        for _ in 0..count {
+            let buffer = VMABuffer::create_local_buffer(&self.allocator, size, usage)?;
+            buffers.push(buffer);
+        }
+        Ok(buffers)
+    }
+    /// Shortcut - see [VMABuffer](VMABuffer::create_cpu_to_gpu_buffer) for example.
+    pub fn create_cpu_to_gpu_buffers(
+        &self,
+        size: usize,
+        usage: BufferUsageFlags,
+        count: usize,
+    ) -> Result<Vec<VMABuffer>> {
+        let mut buffers = Vec::new();
+        for _ in 0..count {
+            let buffer = VMABuffer::create_cpu_to_gpu_buffer(&self.allocator, size, usage)?;
+            buffers.push(buffer);
+        }
+        Ok(buffers)
     }
 }

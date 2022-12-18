@@ -1,0 +1,138 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'vku'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=vku"
+                ],
+                "filter": {
+                    "name": "vku",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'shader_compilation'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=shader_compilation",
+                    "--package=vku"
+                ],
+                "filter": {
+                    "name": "shader_compilation",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'shader_compilation'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=shader_compilation",
+                    "--package=vku"
+                ],
+                "filter": {
+                    "name": "shader_compilation",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'shader_reflection'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=shader_reflection",
+                    "--package=vku"
+                ],
+                "filter": {
+                    "name": "shader_reflection",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'shader_reflection'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=shader_reflection",
+                    "--package=vku"
+                ],
+                "filter": {
+                    "name": "shader_reflection",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'winit'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=winit",
+                    "--package=vku"
+                ],
+                "filter": {
+                    "name": "winit",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'winit'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=winit",
+                    "--package=vku"
+                ],
+                "filter": {
+                    "name": "winit",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
