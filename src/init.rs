@@ -319,19 +319,18 @@ impl VkInit {
     pub fn acquire_next_swapchain_image(
         &self,
         acquire_img_semaphore: Semaphore,
-        frame: usize,
-    ) -> Result<(Image, ImageView)> {
-        unsafe {
+    ) -> Result<(usize, Image, ImageView)> {
+        let (index, _) = unsafe {
             self.swapchain_loader.acquire_next_image(
                 self.swapchain,
                 u64::MAX,
                 acquire_img_semaphore,
                 Fence::null(),
-            )?;
-        }
-        let swapchain_image = self.swapchain_images[frame];
-        let swapchain_image_view = self.swapchain_image_views[frame];
-        Ok((swapchain_image, swapchain_image_view))
+            )?
+        };
+        let swapchain_image = self.swapchain_images[index as usize];
+        let swapchain_image_view = self.swapchain_image_views[index as usize];
+        Ok((index as usize, swapchain_image, swapchain_image_view))
     }
 
     pub fn begin_cmd_buffer(&self, cmd_buffer: &CommandBuffer) -> Result<()> {
