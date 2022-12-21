@@ -9,16 +9,15 @@ pub struct RendererCreateInfo {
 }
 
 pub struct BaseRenderer {
-    index_buffers: Vec<VMABuffer>,
-    vertex_buffers: Vec<VMABuffer>,
-    pipeline_layout: PipelineLayout,
-    pipeline: Pipeline,
-    descriptor_pool: DescriptorPool,
-    sampler_set_layout: DescriptorSetLayout,
-    sampler: Sampler,
+    pub index_buffers: Vec<VMABuffer>,
+    pub vertex_buffers: Vec<VMABuffer>,
+    pub pipeline_layout: PipelineLayout,
+    pub pipeline: Pipeline,
+    pub descriptor_pool: DescriptorPool,
+    pub sampled_image_desc_set_layout: DescriptorSetLayout,
+    pub sampled_image_desc_set: DescriptorSet,
+    pub sampler: Sampler,
 }
-
-pub trait Renderer: RendererBarriers + VkDestroy {}
 
 pub trait VertexConvert {
     fn convert_to_vertex_input_binding_desc() -> Vec<VertexInputBindingDescription>;
@@ -42,7 +41,7 @@ impl VkInit {
         let index_size = size_of::<Index>() * create_info.initial_buffer_length;
         let vertex_size = size_of::<Vertex>() * create_info.initial_buffer_length;
 
-        let index_buffers = self.create_local_buffers(
+        let index_buffers = self.create_cpu_to_gpu_buffers(
             index_size,
             BufferUsageFlags::INDEX_BUFFER,
             create_info.frames_in_flight,
@@ -57,13 +56,13 @@ impl VkInit {
             .topology(create_info.topology)
             .primitive_restart_enable(false);
 
-        let sampler_size = [DescriptorPoolSize {
+        let sampled_image_size = [DescriptorPoolSize {
             ty: DescriptorType::COMBINED_IMAGE_SAMPLER,
             descriptor_count: 1,
         }];
 
         let descriptor_pool_info = DescriptorPoolCreateInfo::builder()
-            .pool_sizes(&sampler_size)
+            .pool_sizes(&sampled_image_size)
             .max_sets(1);
 
         let descriptor_pool = unsafe {
@@ -71,21 +70,28 @@ impl VkInit {
                 .create_descriptor_pool(&descriptor_pool_info, None)?
         };
 
-        let sampler_bindings = [DescriptorSetLayoutBinding::builder()
+        let sampled_image_bindings = [DescriptorSetLayoutBinding::builder()
             .binding(0)
             .descriptor_type(DescriptorType::COMBINED_IMAGE_SAMPLER)
             .descriptor_count(1)
             .stage_flags(ShaderStageFlags::FRAGMENT)
             .build()];
 
-        let sampler_layout_create_info =
-            DescriptorSetLayoutCreateInfo::builder().bindings(&sampler_bindings);
+        let sampled_image_desc_set_layout_create_info =
+            DescriptorSetLayoutCreateInfo::builder().bindings(&sampled_image_bindings);
 
-        let sampler_set_layout = unsafe {
+        let sampled_image_desc_set_layout = unsafe {
             self.device
-                .create_descriptor_set_layout(&sampler_layout_create_info, None)
+                .create_descriptor_set_layout(&sampled_image_desc_set_layout_create_info, None)
                 .unwrap()
         };
+
+        let sampled_image_desc_set_alloc_info = DescriptorSetAllocateInfo::builder()
+            .descriptor_pool(descriptor_pool)
+            .set_layouts(&[sampled_image_desc_set_layout])
+            .build();
+
+        let sampled_image_desc_set = unsafe { self.device.allocate_descriptor_sets(&sampled_image_desc_set_alloc_info)?[0] };
 
         let sampler_info = SamplerCreateInfo::builder()
             .mag_filter(Filter::LINEAR)
@@ -123,7 +129,7 @@ impl VkInit {
             .build()];
 
         let pipeline_layout_create_info = PipelineLayoutCreateInfo::builder()
-            .set_layouts(&[sampler_set_layout])
+            .set_layouts(&[sampled_image_desc_set_layout])
             .push_constant_ranges(&push_constant_ranges)
             .build();
 
@@ -241,7 +247,8 @@ impl VkInit {
             pipeline_layout,
             pipeline,
             descriptor_pool,
-            sampler_set_layout,
+            sampled_image_desc_set_layout,
+            sampled_image_desc_set,
             sampler,
         })
     }
@@ -260,7 +267,7 @@ impl VkInit {
             self.device
                 .destroy_descriptor_pool(renderer.descriptor_pool, None);
             self.device
-                .destroy_descriptor_set_layout(renderer.sampler_set_layout, None);
+                .destroy_descriptor_set_layout(renderer.sampled_image_desc_set_layout, None);
             self.device.destroy_sampler(renderer.sampler, None);
         }
 
@@ -270,44 +277,44 @@ impl VkInit {
 
 pub trait RendererBarriers {
     fn extend_compute_acquire_barrier(
-        &self,
+        &mut self,
         buffer_memory_barriers: &mut Vec<BufferMemoryBarrier2>,
         image_memory_barriers: &mut Vec<ImageMemoryBarrier2>,
         frame: usize,
-    );
+    ) -> Result<()>;
 
     fn extend_compute_release_barrier(
-        &self,
+        &mut self,
         buffer_memory_barriers: &mut Vec<BufferMemoryBarrier2>,
         image_memory_barriers: &mut Vec<ImageMemoryBarrier2>,
         frame: usize,
-    );
-
-    fn extend_graphics_acquire_barrier(
-        &self,
-        buffer_memory_barriers: &mut Vec<BufferMemoryBarrier2>,
-        image_memory_barriers: &mut Vec<ImageMemoryBarrier2>,
-        frame: usize,
-    );
-
-    fn extend_graphics_release_barrier(
-        &self,
-        buffer_memory_barriers: &mut Vec<BufferMemoryBarrier2>,
-        image_memory_barriers: &mut Vec<ImageMemoryBarrier2>,
-        frame: usize,
-    );
+    ) -> Result<()>;
 
     fn extend_before_input_barrier(
-        &self,
+        &mut self,
         buffer_memory_barriers: &mut Vec<BufferMemoryBarrier2>,
         image_memory_barriers: &mut Vec<ImageMemoryBarrier2>,
         frame: usize,
-    );
+    ) -> Result<()>;
 
     fn extend_after_input_barrier(
-        &self,
+        &mut self,
         buffer_memory_barriers: &mut Vec<BufferMemoryBarrier2>,
         image_memory_barriers: &mut Vec<ImageMemoryBarrier2>,
         frame: usize,
-    );
+    ) -> Result<()>;
+
+    fn extend_graphics_acquire_barrier(
+        &mut self,
+        buffer_memory_barriers: &mut Vec<BufferMemoryBarrier2>,
+        image_memory_barriers: &mut Vec<ImageMemoryBarrier2>,
+        frame: usize,
+    ) -> Result<()>;
+
+    fn extend_graphics_release_barrier(
+        &mut self,
+        buffer_memory_barriers: &mut Vec<BufferMemoryBarrier2>,
+        image_memory_barriers: &mut Vec<ImageMemoryBarrier2>,
+        frame: usize,
+    ) -> Result<()>;
 }

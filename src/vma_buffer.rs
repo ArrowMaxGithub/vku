@@ -11,10 +11,10 @@ impl VMABuffer {
     fn new(
         allocator: &Allocator,
         buffer_info: &BufferCreateInfo,
-        allocation_info: &AllocationCreateInfo,
+        allocation_create_info: &AllocationCreateInfo,
     ) -> Result<Self> {
         let (buffer, allocation, allocation_info) =
-            unsafe { vk_mem_alloc::create_buffer(*allocator, buffer_info, allocation_info)? };
+            unsafe { vk_mem_alloc::create_buffer(*allocator, buffer_info, allocation_create_info)? };
 
         Ok(Self {
             buffer,
