@@ -5,6 +5,7 @@ pub struct VMABuffer {
     pub buffer: Buffer,
     pub allocation: Allocation,
     pub allocation_info: AllocationInfo,
+    pub is_mapped: bool,
 }
 
 impl VMABuffer {
@@ -16,10 +17,13 @@ impl VMABuffer {
         let (buffer, allocation, allocation_info) =
             unsafe { vk_mem_alloc::create_buffer(*allocator, buffer_info, allocation_create_info)? };
 
+        let is_mapped = allocation_create_info.flags.contains(AllocationCreateFlags::MAPPED);
+
         Ok(Self {
             buffer,
             allocation,
             allocation_info,
+            is_mapped,
         })
     }
 
@@ -131,6 +135,10 @@ impl VMABuffer {
     /// buffer.set_data(&data).unwrap();
     /// ```
     pub fn set_data<T>(&self, data: &[T]) -> Result<()> {
+        if !self.is_mapped{
+            return Err(anyhow!("Tried to set_data on an unmapped buffer"))
+        }
+        
         let ptr = self.allocation_info.mapped_data as *mut T;
         unsafe {
             ptr.copy_from_nonoverlapping(data.as_ptr(), data.len());
