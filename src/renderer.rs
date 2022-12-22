@@ -91,7 +91,10 @@ impl VkInit {
             .set_layouts(&[sampled_image_desc_set_layout])
             .build();
 
-        let sampled_image_desc_set = unsafe { self.device.allocate_descriptor_sets(&sampled_image_desc_set_alloc_info)?[0] };
+        let sampled_image_desc_set = unsafe {
+            self.device
+                .allocate_descriptor_sets(&sampled_image_desc_set_alloc_info)?[0]
+        };
 
         let sampler_info = SamplerCreateInfo::builder()
             .mag_filter(Filter::LINEAR)

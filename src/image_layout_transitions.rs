@@ -77,7 +77,7 @@ pub fn get_image_layout_transition_barrier2(
             trace!("Tried to transition from {src_layout:?} to {dst_layout:?}");
             return Err(anyhow!(
                 ImageLayoutTransitionError::UnsupportedImageLayoutTransition
-            ))
+            ));
         }
     };
 
