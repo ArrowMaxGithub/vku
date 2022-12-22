@@ -87,20 +87,14 @@ impl VertexConvert for PointVertex2D {
             VertexInputAttributeDescription::builder()
                 .binding(0)
                 .location(0)
-                .format(Format::R32G32_SFLOAT)
+                .format(Format::R32G32B32A32_SFLOAT)
                 .offset(0)
                 .build(),
             VertexInputAttributeDescription::builder()
                 .binding(0)
                 .location(1)
-                .format(Format::R32_SFLOAT)
-                .offset(8)
-                .build(),
-            VertexInputAttributeDescription::builder()
-                .binding(0)
-                .location(2)
                 .format(Format::R8G8B8A8_UNORM)
-                .offset(12)
+                .offset(16)
                 .build(),
         ]
     }
@@ -120,18 +114,12 @@ impl VertexConvert for PointVertex3D {
             VertexInputAttributeDescription::builder()
                 .binding(0)
                 .location(0)
-                .format(Format::R32G32B32_SFLOAT)
+                .format(Format::R32G32B32A32_SFLOAT)
                 .offset(0)
                 .build(),
             VertexInputAttributeDescription::builder()
                 .binding(0)
                 .location(1)
-                .format(Format::R32_SFLOAT)
-                .offset(12)
-                .build(),
-            VertexInputAttributeDescription::builder()
-                .binding(0)
-                .location(2)
                 .format(Format::R8G8B8A8_UNORM)
                 .offset(16)
                 .build(),
