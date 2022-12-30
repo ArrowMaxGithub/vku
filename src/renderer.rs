@@ -6,6 +6,8 @@ pub struct RendererCreateInfo {
     pub topology: PrimitiveTopology,
     pub vertex_code_path: String,
     pub fragment_code_path: String,
+    pub additional_usage_index_buffer: BufferUsageFlags,
+    pub additional_usage_vertex_buffer: BufferUsageFlags,
 }
 
 pub struct BaseRenderer {
@@ -43,12 +45,12 @@ impl VkInit {
 
         let index_buffers = self.create_cpu_to_gpu_buffers(
             index_size,
-            BufferUsageFlags::INDEX_BUFFER,
+            create_info.additional_usage_index_buffer |BufferUsageFlags::INDEX_BUFFER,
             create_info.frames_in_flight,
         )?;
         let vertex_buffers = self.create_cpu_to_gpu_buffers(
             vertex_size,
-            BufferUsageFlags::VERTEX_BUFFER,
+            create_info.additional_usage_vertex_buffer | BufferUsageFlags::VERTEX_BUFFER,
             create_info.frames_in_flight,
         )?;
 

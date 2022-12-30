@@ -87,14 +87,14 @@ impl VertexConvert for PointVertex2D {
             VertexInputAttributeDescription::builder()
                 .binding(0)
                 .location(0)
-                .format(Format::R32G32B32A32_SFLOAT)
+                .format(Format::R32G32B32_SFLOAT)
                 .offset(0)
                 .build(),
             VertexInputAttributeDescription::builder()
                 .binding(0)
                 .location(1)
                 .format(Format::R8G8B8A8_UNORM)
-                .offset(16)
+                .offset(12)
                 .build(),
         ]
     }

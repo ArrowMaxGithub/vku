@@ -441,6 +441,7 @@ impl VkInit {
         let dependency_info = DependencyInfo::builder()
             .image_memory_barriers(image_memory_barriers)
             .buffer_memory_barriers(buffer_memory_barriers)
+            .dependency_flags(DependencyFlags::empty())
             .build();
 
         unsafe {
