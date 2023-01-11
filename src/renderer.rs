@@ -204,7 +204,7 @@ impl VkInit {
         let depth_stencil_state_create_info = PipelineDepthStencilStateCreateInfo::builder()
             .depth_test_enable(false)
             .depth_write_enable(false)
-            .depth_compare_op(CompareOp::ALWAYS)
+            .depth_compare_op(CompareOp::NEVER)
             .depth_bounds_test_enable(false)
             .stencil_test_enable(false)
             .build();

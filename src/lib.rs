@@ -137,7 +137,7 @@ pub mod shader;
 pub use ash;
 pub use create_info::VkInitCreateInfo;
 pub use init::{CmdType, PhysicalDeviceInfo, SurfaceInfo, VkDestroy, VkInit, VkInitInfo};
-pub use renderer::{BaseRenderer, RendererBarriers, RendererCreateInfo};
+pub use renderer::{BaseRenderer, RendererBarriers, RendererCreateInfo, VertexConvert};
 pub use shader::{compile_all_shaders, reflect_spirv_shader, ReflectionResult};
 pub use vertex::*;
 pub use vma_buffer::VMABuffer;
