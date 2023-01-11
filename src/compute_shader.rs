@@ -26,7 +26,7 @@ impl ComputeShader {
         let mut spv_file = Cursor::new(std::fs::read(Path::new(&shader_path))?);
         let code = read_spv(&mut spv_file)?;
         let module_info = ShaderModuleCreateInfo::builder().code(&code);
-        let module = unsafe {device.as_ref().create_shader_module(&module_info, None)}?;
+        let module = unsafe { device.as_ref().create_shader_module(&module_info, None) }?;
 
         let mut spec_consts_data: Vec<u8> = vec![];
         spec_consts_data.extend(group_size_x.to_ne_bytes());
@@ -72,7 +72,11 @@ impl ComputeShader {
             .pool_sizes(&[*pool_size])
             .build();
 
-        let desc_pool = unsafe {device.as_ref().create_descriptor_pool(&desc_pool_create_info, None)}?;
+        let desc_pool = unsafe {
+            device
+                .as_ref()
+                .create_descriptor_pool(&desc_pool_create_info, None)
+        }?;
 
         let mut layout_bindings: Vec<DescriptorSetLayoutBinding> = Vec::new();
         let mut descriptor_buffers: Vec<DescriptorBufferInfo> = Vec::new();
@@ -99,14 +103,18 @@ impl ComputeShader {
             .bindings(&layout_bindings)
             .build();
 
-        let desc_set_layout = unsafe {device.as_ref().create_descriptor_set_layout(&desc_set_layout_info, None)?};
+        let desc_set_layout = unsafe {
+            device
+                .as_ref()
+                .create_descriptor_set_layout(&desc_set_layout_info, None)?
+        };
 
         let alloc_info = ash::vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(desc_pool)
             .set_layouts(&[desc_set_layout])
             .build();
 
-        let desc_sets = unsafe {device.as_ref().allocate_descriptor_sets(&alloc_info)?};
+        let desc_sets = unsafe { device.as_ref().allocate_descriptor_sets(&alloc_info)? };
 
         let mut write_sets: Vec<ash::vk::WriteDescriptorSet> = Vec::new();
         for (index, descriptor_buffer) in descriptor_buffers.iter().enumerate() {
@@ -121,24 +129,31 @@ impl ComputeShader {
             write_sets.push(write_set);
         }
 
-        unsafe {device.as_ref().update_descriptor_sets(&write_sets, &[]);}
+        unsafe {
+            device.as_ref().update_descriptor_sets(&write_sets, &[]);
+        }
 
         let layout_info = PipelineLayoutCreateInfo::builder()
             .set_layouts(&[desc_set_layout])
             .push_constant_ranges(&push_constants_ranges)
             .build();
 
-        let layout = unsafe {device.as_ref().create_pipeline_layout(&layout_info, None)?};
+        let layout = unsafe { device.as_ref().create_pipeline_layout(&layout_info, None)? };
 
         let pipeline_info = ComputePipelineCreateInfo::builder()
             .stage(*shader_stage_info)
             .layout(layout);
 
-        let pipeline = unsafe {device.as_ref()
-            .create_compute_pipelines(PipelineCache::null(), &[*pipeline_info], None)
-            .unwrap()[0]};
+        let pipeline = unsafe {
+            device
+                .as_ref()
+                .create_compute_pipelines(PipelineCache::null(), &[*pipeline_info], None)
+                .unwrap()[0]
+        };
 
-        unsafe {device.as_ref().destroy_shader_module(module, None);}
+        unsafe {
+            device.as_ref().destroy_shader_module(module, None);
+        }
 
         Ok(Self {
             pipeline,
@@ -192,12 +207,14 @@ impl ComputeShader {
     }
 }
 
-impl VkDestroy for ComputeShader{
+impl VkDestroy for ComputeShader {
     fn destroy(&self, vk_init: &crate::VkInit) -> Result<()> {
         unsafe {
             vk_init.device.destroy_pipeline_layout(self.layout, None);
             vk_init.device.destroy_pipeline(self.pipeline, None);
-            vk_init.device.destroy_descriptor_set_layout(self.desc_set_layout, None);
+            vk_init
+                .device
+                .destroy_descriptor_set_layout(self.desc_set_layout, None);
             vk_init.device.destroy_descriptor_pool(self.desc_pool, None);
         }
         Ok(())

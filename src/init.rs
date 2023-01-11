@@ -229,6 +229,64 @@ impl VkInit {
         Ok(())
     }
 
+    pub fn set_debug_object_name(
+        &self,
+        obj_handle: u64,
+        obj_type: ObjectType,
+        name: &str,
+    ) -> Result<()> {
+        if let Some(dbg) = &self.debug_loader {
+            let name_info = DebugUtilsObjectNameInfoEXT::builder()
+                .object_name(unsafe { CStr::from_ptr(name.as_ptr() as *const i8) })
+                .object_handle(obj_handle)
+                .object_type(obj_type)
+                .build();
+
+            unsafe { dbg.set_debug_utils_object_name(self.device.handle(), &name_info)? };
+        }
+        Ok(())
+    }
+
+    pub fn insert_debug_label(
+        &self,
+        cmd_buffer: &CommandBuffer,
+        name: &str,
+    ) -> Result<()> {
+        if let Some(dbg) = &self.debug_loader {
+            let label_info = DebugUtilsLabelEXT::builder()
+                .label_name(unsafe { CStr::from_ptr(name.as_ptr() as *const i8) })
+                .build();
+
+            unsafe { dbg.cmd_insert_debug_utils_label(*cmd_buffer, &label_info) };
+        }
+        Ok(())
+    }
+
+    pub fn begin_debug_label(
+        &self,
+        cmd_buffer: &CommandBuffer,
+        name: &str,
+    ) -> Result<()> {
+        if let Some(dbg) = &self.debug_loader {
+            let label_info = DebugUtilsLabelEXT::builder()
+                .label_name(unsafe { CStr::from_ptr(name.as_ptr() as *const i8) })
+                .build();
+
+            unsafe { dbg.cmd_begin_debug_utils_label(*cmd_buffer, &label_info) };
+        }
+        Ok(())
+    }
+
+    pub fn end_debug_label(
+        &self,
+        cmd_buffer: &CommandBuffer,
+    ) -> Result<()> {
+        if let Some(dbg) = &self.debug_loader {
+            unsafe { dbg.cmd_end_debug_utils_label(*cmd_buffer) };
+        }
+        Ok(())
+    }
+
     pub fn create_cmd_pool(&self, cmd_type: CmdType) -> Result<CommandPool> {
         let (_, queue_family_index) = self.get_queue(cmd_type);
         let create_info = CommandPoolCreateInfo::builder()

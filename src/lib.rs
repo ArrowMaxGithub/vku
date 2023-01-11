@@ -120,6 +120,7 @@
 #[macro_use]
 extern crate derive_error;
 
+mod compute_shader;
 mod create_info;
 mod errors;
 mod image_layout_transitions;
@@ -130,11 +131,11 @@ mod swapchain;
 mod vertex;
 mod vma_buffer;
 mod vma_image;
-mod compute_shader;
 
 pub mod shader;
 
 pub use ash;
+pub use compute_shader::ComputeShader;
 pub use create_info::VkInitCreateInfo;
 pub use init::{CmdType, PhysicalDeviceInfo, SurfaceInfo, VkDestroy, VkInit, VkInitInfo};
 pub use renderer::{BaseRenderer, RendererBarriers, RendererCreateInfo, VertexConvert};
@@ -142,4 +143,3 @@ pub use shader::{compile_all_shaders, reflect_spirv_shader, ReflectionResult};
 pub use vertex::*;
 pub use vma_buffer::VMABuffer;
 pub use vma_image::VMAImage;
-pub use compute_shader::ComputeShader;
