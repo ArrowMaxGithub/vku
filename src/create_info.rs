@@ -71,7 +71,7 @@ impl VkInitCreateInfo {
                 Format::R8G8B8A8_UNORM
             },
             frames_in_flight: 3,
-            present_mode: PresentModeKHR::IMMEDIATE,
+            present_mode: PresentModeKHR::FIFO,
         }
     }
 

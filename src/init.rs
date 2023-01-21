@@ -183,6 +183,91 @@ impl VkInit {
                 surface_info,
             };
 
+            if let Some(dbg) = &debug_loader {
+                let instance_info = DebugUtilsObjectNameInfoEXT::builder()
+                    .object_name(CStr::from_ptr("VKU_Instance".as_ptr() as *const i8))
+                    .object_handle(instance.handle().as_raw())
+                    .object_type(ObjectType::INSTANCE)
+                    .build();    
+                dbg.set_debug_utils_object_name(device.handle(), &instance_info)?;
+
+                let debug_msg_info = DebugUtilsObjectNameInfoEXT::builder()
+                    .object_name(CStr::from_ptr("VKU_Debug_Messenger".as_ptr() as *const i8))
+                    .object_handle(debug_messenger.unwrap().as_raw())
+                    .object_type(ObjectType::DEBUG_UTILS_MESSENGER_EXT)
+                    .build();    
+                dbg.set_debug_utils_object_name(device.handle(), &debug_msg_info)?;
+
+                let physical_device_info = DebugUtilsObjectNameInfoEXT::builder()
+                    .object_name(CStr::from_ptr("VKU_PhysicalDevice".as_ptr() as *const i8))
+                    .object_handle(physical_device.as_raw())
+                    .object_type(ObjectType::PHYSICAL_DEVICE)
+                    .build();    
+                dbg.set_debug_utils_object_name(device.handle(), &physical_device_info)?;
+
+                let device_info = DebugUtilsObjectNameInfoEXT::builder()
+                    .object_name(CStr::from_ptr("VKU_Device".as_ptr() as *const i8))
+                    .object_handle(device.handle().as_raw())
+                    .object_type(ObjectType::DEVICE)
+                    .build();    
+                dbg.set_debug_utils_object_name(device.handle(), &device_info)?;
+
+                let unified_queue_info = DebugUtilsObjectNameInfoEXT::builder()
+                    .object_name(CStr::from_ptr("VKU_Unified_Queue".as_ptr() as *const i8))
+                    .object_handle(unified_queue.as_raw())
+                    .object_type(ObjectType::QUEUE)
+                    .build();    
+                dbg.set_debug_utils_object_name(device.handle(), &unified_queue_info)?;
+
+                if let Some(transfer_queue) = transfer_queue{
+                    let transfer_queue_info = DebugUtilsObjectNameInfoEXT::builder()
+                        .object_name(CStr::from_ptr("VKU_Transfer_Queue".as_ptr() as *const i8))
+                        .object_handle(transfer_queue.as_raw())
+                        .object_type(ObjectType::QUEUE)
+                        .build();    
+                    dbg.set_debug_utils_object_name(device.handle(), &transfer_queue_info)?;
+                }
+
+                if let Some(compute_queue) = compute_queue{
+                    let compute_queue_info = DebugUtilsObjectNameInfoEXT::builder()
+                        .object_name(CStr::from_ptr("VKU_Compute_Queue".as_ptr() as *const i8))
+                        .object_handle(compute_queue.as_raw())
+                        .object_type(ObjectType::QUEUE)
+                        .build();    
+                    dbg.set_debug_utils_object_name(device.handle(), &compute_queue_info)?;
+                }
+
+                let surface_info = DebugUtilsObjectNameInfoEXT::builder()
+                    .object_name(CStr::from_ptr("VKU_SurfaceKHR".as_ptr() as *const i8))
+                    .object_handle(surface.as_raw())
+                    .object_type(ObjectType::SURFACE_KHR)
+                    .build();    
+                dbg.set_debug_utils_object_name(device.handle(), &surface_info)?;
+
+                let swapchain_info = DebugUtilsObjectNameInfoEXT::builder()
+                    .object_name(CStr::from_ptr("VKU_SwapchainKHR".as_ptr() as *const i8))
+                    .object_handle(swapchain.as_raw())
+                    .object_type(ObjectType::SWAPCHAIN_KHR)
+                    .build();    
+                dbg.set_debug_utils_object_name(device.handle(), &swapchain_info)?;
+
+                for (index, (image, image_view)) in swapchain_images.iter().zip(&swapchain_image_views).enumerate(){
+                    let image_info = DebugUtilsObjectNameInfoEXT::builder()
+                        .object_name(CStr::from_ptr(format!("VKU_Swapchain_Image_{index}").as_ptr() as *const i8))
+                        .object_handle(image.as_raw())
+                        .object_type(ObjectType::IMAGE)
+                        .build();    
+                    dbg.set_debug_utils_object_name(device.handle(), &image_info)?;
+
+                    let image_view_info = DebugUtilsObjectNameInfoEXT::builder()
+                        .object_name(CStr::from_ptr(format!("VKU_Swapchain_ImageView_{index}").as_ptr() as *const i8))
+                        .object_handle(image_view.as_raw())
+                        .object_type(ObjectType::IMAGE_VIEW)
+                        .build();    
+                    dbg.set_debug_utils_object_name(device.handle(), &image_view_info)?;
+                }
+            }
+
             info!("VkInit created successfully");
 
             Ok(Self {
