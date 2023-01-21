@@ -184,20 +184,6 @@ impl VkInit {
             };
 
             if let Some(dbg) = &debug_loader {
-                let instance_info = DebugUtilsObjectNameInfoEXT::builder()
-                    .object_name(CStr::from_ptr("VKU_Instance".as_ptr() as *const i8))
-                    .object_handle(instance.handle().as_raw())
-                    .object_type(ObjectType::INSTANCE)
-                    .build();    
-                dbg.set_debug_utils_object_name(device.handle(), &instance_info)?;
-
-                let debug_msg_info = DebugUtilsObjectNameInfoEXT::builder()
-                    .object_name(CStr::from_ptr("VKU_Debug_Messenger".as_ptr() as *const i8))
-                    .object_handle(debug_messenger.unwrap().as_raw())
-                    .object_type(ObjectType::DEBUG_UTILS_MESSENGER_EXT)
-                    .build();    
-                dbg.set_debug_utils_object_name(device.handle(), &debug_msg_info)?;
-
                 let physical_device_info = DebugUtilsObjectNameInfoEXT::builder()
                     .object_name(CStr::from_ptr("VKU_PhysicalDevice".as_ptr() as *const i8))
                     .object_handle(physical_device.as_raw())
