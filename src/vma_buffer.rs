@@ -37,6 +37,20 @@ impl VMABuffer {
         Ok(())
     }
 
+    pub fn set_debug_object_name(&self, vk_init: &VkInit, base_name: String) -> Result<()> {
+        vk_init.set_debug_object_name(
+            self.buffer.as_raw(),
+            ObjectType::BUFFER,
+            format!("{base_name}_Buffer"),
+        )?;
+        vk_init.set_debug_object_name(
+            self.allocation_info.device_memory.as_raw(),
+            ObjectType::DEVICE_MEMORY,
+            format!("{base_name}_Memory"),
+        )?;
+        Ok(())
+    }
+
     /// Creates and allocates a buffer of the requested size.
     ///
     /// Preferred to be device-local.

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use log::{error, info, trace};
+use log::{error, info};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use std::io::Write;
 use std::time::Instant;

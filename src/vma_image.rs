@@ -70,6 +70,27 @@ impl VMAImage {
         Ok(())
     }
 
+    pub fn set_debug_object_name(&self, vk_init: &VkInit, base_name: String) -> Result<()> {
+        vk_init.set_debug_object_name(
+            self.image.as_raw(),
+            ObjectType::IMAGE,
+            format!("{base_name}_Image"),
+        )?;
+        vk_init.set_debug_object_name(
+            self.allocation_info.device_memory.as_raw(),
+            ObjectType::DEVICE_MEMORY,
+            format!("{base_name}_Memory"),
+        )?;
+        vk_init.set_debug_object_name(
+            self.image_view.as_raw(),
+            ObjectType::IMAGE_VIEW,
+            format!("{base_name}_Image_View"),
+        )?;
+        self.staging_buffer
+            .set_debug_object_name(vk_init, format!("{base_name}_Staging_Buffer"))?;
+        Ok(())
+    }
+
     /// Creates an empty image with specified format for transfer and sample operations.
     /// ```
     /// # extern crate winit;

@@ -128,7 +128,6 @@ mod imports;
 mod init;
 mod renderer;
 mod swapchain;
-mod vertex;
 mod vma_buffer;
 mod vma_image;
 
@@ -138,8 +137,8 @@ pub use ash;
 pub use compute_shader::ComputeShader;
 pub use create_info::VkInitCreateInfo;
 pub use init::{CmdType, PhysicalDeviceInfo, SurfaceInfo, VkDestroy, VkInit, VkInitInfo};
-pub use renderer::{BaseRenderer, RendererBarriers, RendererCreateInfo, VertexConvert};
+pub use renderer::{BaseRenderer, RendererCreateInfo, VertexConvert};
 pub use shader::{compile_all_shaders, reflect_spirv_shader, ReflectionResult};
-pub use vertex::*;
+pub use vk_mem_alloc;
 pub use vma_buffer::VMABuffer;
 pub use vma_image::VMAImage;

@@ -8,6 +8,7 @@ pub struct RendererCreateInfo {
     pub fragment_code_path: String,
     pub additional_usage_index_buffer: BufferUsageFlags,
     pub additional_usage_vertex_buffer: BufferUsageFlags,
+    pub debug_name: String,
 }
 
 pub struct BaseRenderer {
@@ -34,6 +35,7 @@ impl VkInit {
     where
         Vertex: VertexConvert,
     {
+        let base_debug_name = &create_info.debug_name;
         let vertex_input_binding_desc = Vertex::convert_to_vertex_input_binding_desc();
         let vertex_input_atrtibute_desc = Vertex::convert_to_vertex_input_attrib_desc();
         let vertex_input_state_info = PipelineVertexInputStateCreateInfo::builder()
@@ -48,11 +50,20 @@ impl VkInit {
             create_info.additional_usage_index_buffer | BufferUsageFlags::INDEX_BUFFER,
             create_info.frames_in_flight,
         )?;
+        for (i, vma_buffer) in index_buffers.iter().enumerate() {
+            vma_buffer
+                .set_debug_object_name(self, format!("{base_debug_name}_Index_Buffer_{i}"))?;
+        }
+
         let vertex_buffers = self.create_cpu_to_gpu_buffers(
             vertex_size,
             create_info.additional_usage_vertex_buffer | BufferUsageFlags::VERTEX_BUFFER,
             create_info.frames_in_flight,
         )?;
+        for (i, vma_buffer) in vertex_buffers.iter().enumerate() {
+            vma_buffer
+                .set_debug_object_name(self, format!("{base_debug_name}_Vertex_Buffer_{i}"))?;
+        }
 
         let vertex_input_assembly_state_info = PipelineInputAssemblyStateCreateInfo::builder()
             .topology(create_info.topology)
@@ -71,6 +82,11 @@ impl VkInit {
             self.device
                 .create_descriptor_pool(&descriptor_pool_info, None)?
         };
+        self.set_debug_object_name(
+            descriptor_pool.as_raw(),
+            ObjectType::DESCRIPTOR_POOL,
+            format!("{base_debug_name}_Descriptor_Pool"),
+        )?;
 
         let sampled_image_bindings = [DescriptorSetLayoutBinding::builder()
             .binding(0)
@@ -87,6 +103,11 @@ impl VkInit {
                 .create_descriptor_set_layout(&sampled_image_desc_set_layout_create_info, None)
                 .unwrap()
         };
+        self.set_debug_object_name(
+            sampled_image_desc_set_layout.as_raw(),
+            ObjectType::DESCRIPTOR_SET_LAYOUT,
+            format!("{base_debug_name}_Sampled_Image_Desc_Layout"),
+        )?;
 
         let sampled_image_desc_set_alloc_info = DescriptorSetAllocateInfo::builder()
             .descriptor_pool(descriptor_pool)
@@ -97,6 +118,11 @@ impl VkInit {
             self.device
                 .allocate_descriptor_sets(&sampled_image_desc_set_alloc_info)?[0]
         };
+        self.set_debug_object_name(
+            sampled_image_desc_set.as_raw(),
+            ObjectType::DESCRIPTOR_SET,
+            format!("{base_debug_name}_Sampled_Image_Desc_Set"),
+        )?;
 
         let sampler_info = SamplerCreateInfo::builder()
             .mag_filter(Filter::LINEAR)
@@ -107,6 +133,11 @@ impl VkInit {
             .mipmap_mode(SamplerMipmapMode::LINEAR);
 
         let sampler = unsafe { self.device.create_sampler(&sampler_info, None)? };
+        self.set_debug_object_name(
+            sampler.as_raw(),
+            ObjectType::SAMPLER,
+            format!("{base_debug_name}_Sampler"),
+        )?;
 
         let mut vertex_spv_file =
             Cursor::new(std::fs::read(Path::new(&create_info.vertex_code_path))?);
@@ -116,16 +147,28 @@ impl VkInit {
         let vertex_code = read_spv(&mut vertex_spv_file)?;
         let vertex_shader_info = ShaderModuleCreateInfo::builder().code(&vertex_code);
 
-        let frag_code = read_spv(&mut frag_spv_file)?;
-        let frag_shader_info = ShaderModuleCreateInfo::builder().code(&frag_code);
+        let fragment_code = read_spv(&mut frag_spv_file)?;
+        let fragment_shader_info = ShaderModuleCreateInfo::builder().code(&fragment_code);
 
         let vertex_shader_module = unsafe {
             self.device
                 .create_shader_module(&vertex_shader_info, None)?
         };
+        self.set_debug_object_name(
+            vertex_shader_module.as_raw(),
+            ObjectType::SHADER_MODULE,
+            format!("{base_debug_name}_Vertex_Shader_Module"),
+        )?;
 
-        let fragment_shader_module =
-            unsafe { self.device.create_shader_module(&frag_shader_info, None)? };
+        let fragment_shader_module = unsafe {
+            self.device
+                .create_shader_module(&fragment_shader_info, None)?
+        };
+        self.set_debug_object_name(
+            fragment_shader_module.as_raw(),
+            ObjectType::SHADER_MODULE,
+            format!("{base_debug_name}_Fragment_Shader_Module"),
+        )?;
 
         let push_constant_ranges = [PushConstantRange::builder()
             .offset(0)
@@ -142,6 +185,11 @@ impl VkInit {
             self.device
                 .create_pipeline_layout(&pipeline_layout_create_info, None)?
         };
+        self.set_debug_object_name(
+            pipeline_layout.as_raw(),
+            ObjectType::PIPELINE_LAYOUT,
+            format!("{base_debug_name}_Pipeline_Layout"),
+        )?;
 
         let shader_entry_name = CString::new("main")?;
         let shader_stage_create_infos = [
@@ -238,13 +286,18 @@ impl VkInit {
                 .create_graphics_pipelines(PipelineCache::null(), &[pipeline_info_final], None)
                 .unwrap()[0]
         };
+        self.set_debug_object_name(
+            pipeline.as_raw(),
+            ObjectType::PIPELINE,
+            format!("{base_debug_name}_Pipeline"),
+        )?;
 
-        unsafe {
-            self.device
-                .destroy_shader_module(vertex_shader_module, None);
-            self.device
-                .destroy_shader_module(fragment_shader_module, None);
-        }
+        // unsafe {
+        //     self.device
+        //         .destroy_shader_module(vertex_shader_module, None);
+        //     self.device
+        //         .destroy_shader_module(fragment_shader_module, None);
+        // }
 
         Ok(BaseRenderer {
             vertex_buffers,
@@ -278,48 +331,4 @@ impl VkInit {
 
         Ok(())
     }
-}
-
-pub trait RendererBarriers {
-    fn extend_compute_acquire_barrier(
-        &mut self,
-        buffer_memory_barriers: &mut Vec<BufferMemoryBarrier2>,
-        image_memory_barriers: &mut Vec<ImageMemoryBarrier2>,
-        frame: usize,
-    ) -> Result<()>;
-
-    fn extend_compute_release_barrier(
-        &mut self,
-        buffer_memory_barriers: &mut Vec<BufferMemoryBarrier2>,
-        image_memory_barriers: &mut Vec<ImageMemoryBarrier2>,
-        frame: usize,
-    ) -> Result<()>;
-
-    fn extend_before_input_barrier(
-        &mut self,
-        buffer_memory_barriers: &mut Vec<BufferMemoryBarrier2>,
-        image_memory_barriers: &mut Vec<ImageMemoryBarrier2>,
-        frame: usize,
-    ) -> Result<()>;
-
-    fn extend_after_input_barrier(
-        &mut self,
-        buffer_memory_barriers: &mut Vec<BufferMemoryBarrier2>,
-        image_memory_barriers: &mut Vec<ImageMemoryBarrier2>,
-        frame: usize,
-    ) -> Result<()>;
-
-    fn extend_graphics_acquire_barrier(
-        &mut self,
-        buffer_memory_barriers: &mut Vec<BufferMemoryBarrier2>,
-        image_memory_barriers: &mut Vec<ImageMemoryBarrier2>,
-        frame: usize,
-    ) -> Result<()>;
-
-    fn extend_graphics_release_barrier(
-        &mut self,
-        buffer_memory_barriers: &mut Vec<BufferMemoryBarrier2>,
-        image_memory_barriers: &mut Vec<ImageMemoryBarrier2>,
-        frame: usize,
-    ) -> Result<()>;
 }

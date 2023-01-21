@@ -183,74 +183,82 @@ impl VkInit {
                 surface_info,
             };
 
+            //TODO: Why is RenderDoc crashing when Instance debug name is set?
+            //TODO: Why are swapchain, swapchain_images, and swapchain_image_views names not set in RenderDoc?
             if let Some(dbg) = &debug_loader {
-                let physical_device_info = DebugUtilsObjectNameInfoEXT::builder()
-                    .object_name(CStr::from_ptr("VKU_PhysicalDevice".as_ptr() as *const i8))
-                    .object_handle(physical_device.as_raw())
-                    .object_type(ObjectType::PHYSICAL_DEVICE)
-                    .build();    
-                dbg.set_debug_utils_object_name(device.handle(), &physical_device_info)?;
-
-                let device_info = DebugUtilsObjectNameInfoEXT::builder()
-                    .object_name(CStr::from_ptr("VKU_Device".as_ptr() as *const i8))
-                    .object_handle(device.handle().as_raw())
-                    .object_type(ObjectType::DEVICE)
-                    .build();    
-                dbg.set_debug_utils_object_name(device.handle(), &device_info)?;
-
-                let unified_queue_info = DebugUtilsObjectNameInfoEXT::builder()
-                    .object_name(CStr::from_ptr("VKU_Unified_Queue".as_ptr() as *const i8))
-                    .object_handle(unified_queue.as_raw())
-                    .object_type(ObjectType::QUEUE)
-                    .build();    
-                dbg.set_debug_utils_object_name(device.handle(), &unified_queue_info)?;
-
-                if let Some(transfer_queue) = transfer_queue{
-                    let transfer_queue_info = DebugUtilsObjectNameInfoEXT::builder()
-                        .object_name(CStr::from_ptr("VKU_Transfer_Queue".as_ptr() as *const i8))
-                        .object_handle(transfer_queue.as_raw())
-                        .object_type(ObjectType::QUEUE)
-                        .build();    
-                    dbg.set_debug_utils_object_name(device.handle(), &transfer_queue_info)?;
+                Self::set_debug_object_name_static(
+                    dbg,
+                    &device,
+                    physical_device.as_raw(),
+                    ObjectType::PHYSICAL_DEVICE,
+                    "VKU_Physical_Device".to_string(),
+                )?;
+                Self::set_debug_object_name_static(
+                    dbg,
+                    &device,
+                    device.handle().as_raw(),
+                    ObjectType::DEVICE,
+                    "VKU_Device".to_string(),
+                )?;
+                Self::set_debug_object_name_static(
+                    dbg,
+                    &device,
+                    unified_queue.as_raw(),
+                    ObjectType::QUEUE,
+                    "VKU_Unified_Queue".to_string(),
+                )?;
+                if let Some(transfer_queue) = transfer_queue {
+                    Self::set_debug_object_name_static(
+                        dbg,
+                        &device,
+                        transfer_queue.as_raw(),
+                        ObjectType::QUEUE,
+                        "VKU_Transfer_Queue".to_string(),
+                    )?;
                 }
 
-                if let Some(compute_queue) = compute_queue{
-                    let compute_queue_info = DebugUtilsObjectNameInfoEXT::builder()
-                        .object_name(CStr::from_ptr("VKU_Compute_Queue".as_ptr() as *const i8))
-                        .object_handle(compute_queue.as_raw())
-                        .object_type(ObjectType::QUEUE)
-                        .build();    
-                    dbg.set_debug_utils_object_name(device.handle(), &compute_queue_info)?;
+                if let Some(compute_queue) = compute_queue {
+                    Self::set_debug_object_name_static(
+                        dbg,
+                        &device,
+                        compute_queue.as_raw(),
+                        ObjectType::QUEUE,
+                        "VKU_Compute_Queue".to_string(),
+                    )?;
+                }
+                Self::set_debug_object_name_static(
+                    dbg,
+                    &device,
+                    surface.as_raw(),
+                    ObjectType::SURFACE_KHR,
+                    "VKU_SurfaceKHR".to_string(),
+                )?;
+                Self::set_debug_object_name_static(
+                    dbg,
+                    &device,
+                    swapchain.as_raw(),
+                    ObjectType::SWAPCHAIN_KHR,
+                    "VKU_SwapchainKHR".to_string(),
+                )?;
+
+                for (i, image) in swapchain_images.iter().enumerate() {
+                    Self::set_debug_object_name_static(
+                        dbg,
+                        &device,
+                        image.as_raw(),
+                        ObjectType::IMAGE,
+                        format!("VKU_Image_{i}"),
+                    )?;
                 }
 
-                let surface_info = DebugUtilsObjectNameInfoEXT::builder()
-                    .object_name(CStr::from_ptr("VKU_SurfaceKHR".as_ptr() as *const i8))
-                    .object_handle(surface.as_raw())
-                    .object_type(ObjectType::SURFACE_KHR)
-                    .build();    
-                dbg.set_debug_utils_object_name(device.handle(), &surface_info)?;
-
-                let swapchain_info = DebugUtilsObjectNameInfoEXT::builder()
-                    .object_name(CStr::from_ptr("VKU_SwapchainKHR".as_ptr() as *const i8))
-                    .object_handle(swapchain.as_raw())
-                    .object_type(ObjectType::SWAPCHAIN_KHR)
-                    .build();    
-                dbg.set_debug_utils_object_name(device.handle(), &swapchain_info)?;
-
-                for (index, (image, image_view)) in swapchain_images.iter().zip(&swapchain_image_views).enumerate(){
-                    let image_info = DebugUtilsObjectNameInfoEXT::builder()
-                        .object_name(CStr::from_ptr(format!("VKU_Swapchain_Image_{index}").as_ptr() as *const i8))
-                        .object_handle(image.as_raw())
-                        .object_type(ObjectType::IMAGE)
-                        .build();    
-                    dbg.set_debug_utils_object_name(device.handle(), &image_info)?;
-
-                    let image_view_info = DebugUtilsObjectNameInfoEXT::builder()
-                        .object_name(CStr::from_ptr(format!("VKU_Swapchain_ImageView_{index}").as_ptr() as *const i8))
-                        .object_handle(image_view.as_raw())
-                        .object_type(ObjectType::IMAGE_VIEW)
-                        .build();    
-                    dbg.set_debug_utils_object_name(device.handle(), &image_view_info)?;
+                for (i, image_view) in swapchain_image_views.iter().enumerate() {
+                    Self::set_debug_object_name_static(
+                        dbg,
+                        &device,
+                        image_view.as_raw(),
+                        ObjectType::IMAGE_VIEW,
+                        format!("VKU_Image_View_{i}"),
+                    )?;
                 }
             }
 
@@ -304,11 +312,14 @@ impl VkInit {
         &self,
         obj_handle: u64,
         obj_type: ObjectType,
-        name: &str,
+        name: String,
     ) -> Result<()> {
+        // return Ok(());
         if let Some(dbg) = &self.debug_loader {
+            let c_name = CString::new(name)?;
+
             let name_info = DebugUtilsObjectNameInfoEXT::builder()
-                .object_name(unsafe { CStr::from_ptr(name.as_ptr() as *const i8) })
+                .object_name(&c_name)
                 .object_handle(obj_handle)
                 .object_type(obj_type)
                 .build();
@@ -318,11 +329,7 @@ impl VkInit {
         Ok(())
     }
 
-    pub fn insert_debug_label(
-        &self,
-        cmd_buffer: &CommandBuffer,
-        name: &str,
-    ) -> Result<()> {
+    pub fn insert_debug_label(&self, cmd_buffer: &CommandBuffer, name: &str) -> Result<()> {
         if let Some(dbg) = &self.debug_loader {
             let label_info = DebugUtilsLabelEXT::builder()
                 .label_name(unsafe { CStr::from_ptr(name.as_ptr() as *const i8) })
@@ -333,11 +340,7 @@ impl VkInit {
         Ok(())
     }
 
-    pub fn begin_debug_label(
-        &self,
-        cmd_buffer: &CommandBuffer,
-        name: &str,
-    ) -> Result<()> {
+    pub fn begin_debug_label(&self, cmd_buffer: &CommandBuffer, name: &str) -> Result<()> {
         if let Some(dbg) = &self.debug_loader {
             let label_info = DebugUtilsLabelEXT::builder()
                 .label_name(unsafe { CStr::from_ptr(name.as_ptr() as *const i8) })
@@ -348,10 +351,7 @@ impl VkInit {
         Ok(())
     }
 
-    pub fn end_debug_label(
-        &self,
-        cmd_buffer: &CommandBuffer,
-    ) -> Result<()> {
+    pub fn end_debug_label(&self, cmd_buffer: &CommandBuffer) -> Result<()> {
         if let Some(dbg) = &self.debug_loader {
             unsafe { dbg.cmd_end_debug_utils_label(*cmd_buffer) };
         }
@@ -666,6 +666,24 @@ impl VkInit {
         }
     }
 
+    fn set_debug_object_name_static(
+        dbg: &DebugUtils,
+        device: &Device,
+        obj_handle: u64,
+        obj_type: ObjectType,
+        name: String,
+    ) -> Result<()> {
+        let c_name = CString::new(name)?;
+        let name_info = DebugUtilsObjectNameInfoEXT::builder()
+            .object_name(&c_name)
+            .object_handle(obj_handle)
+            .object_type(obj_type)
+            .build();
+
+        unsafe { dbg.set_debug_utils_object_name(device.handle(), &name_info)? };
+        Ok(())
+    }
+
     pub(crate) unsafe fn create_instance_and_debug(
         entry: &Entry,
         display_handle: &RawDisplayHandle,
@@ -687,10 +705,15 @@ impl VkInit {
         if create_info.enable_validation {
             extensions_names.push(DebugUtils::name().as_ptr());
 
-            let enabled_layers_names: Vec<*const c_char> = create_info
+            let enabled_layers_names_c_strings: Vec<CString> = create_info
                 .enabled_validation_layers
                 .iter()
-                .map(|s| CStr::from_ptr(s.as_ptr() as *const i8).as_ptr())
+                .map(|s| CString::new(s.clone()).unwrap())
+                .collect();
+
+            let enabled_layers_names_ptr: Vec<*const i8> = enabled_layers_names_c_strings
+                .iter()
+                .map(|c_string| c_string.as_ptr())
                 .collect();
 
             let mut debug_messenger_info = DebugUtilsMessengerCreateInfoEXT::builder()
@@ -703,7 +726,7 @@ impl VkInit {
 
             let mut instance_create_info = InstanceCreateInfo::builder()
                 .application_info(&app_info)
-                .enabled_layer_names(&enabled_layers_names)
+                .enabled_layer_names(&enabled_layers_names_ptr)
                 .enabled_extension_names(&extensions_names)
                 .push_next(&mut val_features);
 
@@ -727,11 +750,10 @@ impl VkInit {
 
             trace!(
                 "Enabled validation layer count: {}",
-                enabled_layers_names.len()
+                enabled_layers_names_c_strings.len()
             );
-            for layer in &enabled_layers_names {
-                let cstr = CStr::from_ptr(*layer);
-                trace!("{:#?}", String::from_utf8_lossy(cstr.to_bytes()));
+            for layer in &enabled_layers_names_c_strings {
+                trace!("{:#?}", layer);
             }
 
             trace!(
