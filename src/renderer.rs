@@ -4,6 +4,7 @@ pub struct RendererCreateInfo {
     pub initial_buffer_length: usize,
     pub frames_in_flight: usize,
     pub topology: PrimitiveTopology,
+    pub blend_mode: BlendMode,
     pub vertex_code_path: String,
     pub fragment_code_path: String,
     pub additional_usage_index_buffer: BufferUsageFlags,
@@ -25,6 +26,71 @@ pub struct BaseRenderer {
 pub trait VertexConvert {
     fn convert_to_vertex_input_binding_desc() -> Vec<VertexInputBindingDescription>;
     fn convert_to_vertex_input_attrib_desc() -> Vec<VertexInputAttributeDescription>;
+}
+
+#[derive(Clone, Copy)]
+pub enum BlendMode{
+    Opaque,
+    TraditionalTransparency,
+    PremultipliedTransparency,
+}
+
+impl Into<PipelineColorBlendAttachmentState> for BlendMode{
+    fn into(self) -> PipelineColorBlendAttachmentState {
+        match self{
+            BlendMode::Opaque => {
+                PipelineColorBlendAttachmentState::builder()
+                    .color_write_mask(
+                        ColorComponentFlags::R
+                            | ColorComponentFlags::G
+                            | ColorComponentFlags::B
+                            | ColorComponentFlags::A,
+                    )
+                    .blend_enable(false)
+                    .color_blend_op(BlendOp::ADD)
+                    .src_color_blend_factor(BlendFactor::ONE)
+                    .src_alpha_blend_factor(BlendFactor::ONE)
+                    .alpha_blend_op(BlendOp::ADD)
+                    .dst_color_blend_factor(BlendFactor::ONE)
+                    .dst_alpha_blend_factor(BlendFactor::ONE)
+                    .build()
+            }
+            BlendMode::TraditionalTransparency => {
+                PipelineColorBlendAttachmentState::builder()
+                    .color_write_mask(
+                        ColorComponentFlags::R
+                            | ColorComponentFlags::G
+                            | ColorComponentFlags::B
+                            | ColorComponentFlags::A,
+                    )
+                    .blend_enable(true)
+                    .color_blend_op(BlendOp::ADD)
+                    .src_color_blend_factor(BlendFactor::SRC_ALPHA)
+                    .src_alpha_blend_factor(BlendFactor::SRC_ALPHA)
+                    .alpha_blend_op(BlendOp::ADD)
+                    .dst_color_blend_factor(BlendFactor::ONE_MINUS_SRC_ALPHA)
+                    .dst_alpha_blend_factor(BlendFactor::ONE_MINUS_SRC_ALPHA)
+                    .build()
+            },
+            BlendMode::PremultipliedTransparency => {
+                PipelineColorBlendAttachmentState::builder()
+                    .color_write_mask(
+                        ColorComponentFlags::R
+                            | ColorComponentFlags::G
+                            | ColorComponentFlags::B
+                            | ColorComponentFlags::A,
+                    )
+                    .blend_enable(true)
+                    .color_blend_op(BlendOp::ADD)
+                    .src_color_blend_factor(BlendFactor::ONE)
+                    .src_alpha_blend_factor(BlendFactor::ONE)
+                    .alpha_blend_op(BlendOp::ADD)
+                    .dst_color_blend_factor(BlendFactor::ONE_MINUS_SRC_ALPHA)
+                    .dst_alpha_blend_factor(BlendFactor::ONE_MINUS_SRC_ALPHA)
+                    .build()
+            },
+        }
+    }
 }
 
 impl VkInit {
@@ -230,21 +296,7 @@ impl VkInit {
             .alpha_to_coverage_enable(false)
             .alpha_to_one_enable(false);
 
-        let color_blend_attachments = [PipelineColorBlendAttachmentState::builder()
-            .color_write_mask(
-                ColorComponentFlags::R
-                    | ColorComponentFlags::G
-                    | ColorComponentFlags::B
-                    | ColorComponentFlags::A,
-            )
-            .blend_enable(true)
-            .color_blend_op(BlendOp::ADD)
-            .src_color_blend_factor(BlendFactor::ONE)
-            .dst_color_blend_factor(BlendFactor::ONE_MINUS_SRC_ALPHA)
-            .alpha_blend_op(BlendOp::ADD)
-            .src_alpha_blend_factor(BlendFactor::ONE_MINUS_DST_ALPHA)
-            .dst_alpha_blend_factor(BlendFactor::ONE)
-            .build()];
+        let color_blend_attachments = [create_info.blend_mode.into()];
 
         let color_blending_info =
             PipelineColorBlendStateCreateInfo::builder().attachments(&color_blend_attachments);
