@@ -314,10 +314,10 @@ impl VkInit {
     pub fn destroy_base_renderer(&self, renderer: &BaseRenderer) -> Result<()> {
         unsafe {
             for buffer in &renderer.index_buffers {
-                buffer.destroy(&self.allocator)?;
+                buffer.destroy(&self)?;
             }
             for buffer in &renderer.vertex_buffers {
-                buffer.destroy(&self.allocator)?;
+                buffer.destroy(&self)?;
             }
             self.device
                 .destroy_pipeline_layout(renderer.pipeline_layout, None);

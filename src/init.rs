@@ -545,12 +545,14 @@ impl VkInit {
 
     pub fn wait_on_fence_and_reset(
         &self,
-        fence: &Fence,
+        fence: Option<&Fence>,
         cmd_buffers: &[&CommandBuffer],
     ) -> Result<()> {
         unsafe {
-            self.device.wait_for_fences(&[*fence], true, u64::MAX)?;
-            self.device.reset_fences(&[*fence])?;
+            if let Some(fence) = fence{
+                self.device.wait_for_fences(&[*fence], true, u64::MAX)?;
+                self.device.reset_fences(&[*fence])?;
+            }
             for cmd_buffer in cmd_buffers {
                 self.device.reset_command_buffer(
                     **cmd_buffer,

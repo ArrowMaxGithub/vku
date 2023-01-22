@@ -1,6 +1,6 @@
 use super::vma_buffer::VMABuffer;
 use crate::imports::Result;
-use crate::{imports::*, VkDestroy};
+use crate::{imports::*, VkDestroy, VkInit};
 
 pub struct ComputeShader {
     pipeline: Pipeline,
@@ -8,30 +8,32 @@ pub struct ComputeShader {
     desc_pool: DescriptorPool,
     desc_set_layout: DescriptorSetLayout,
     desc_sets: Vec<DescriptorSet>,
-    group_size_x: u32,
-    group_size_y: u32,
-    group_size_z: u32,
+    group_sizes: [u32; 3],
 }
 
-impl ComputeShader {
-    pub fn from_src<Push>(
-        device: impl AsRef<Device>,
+impl VkInit {
+    pub fn create_compute_shader<Push>(
+        &self,
         ssbos: &[&VMABuffer],
         shader_path: String,
-        group_size_x: u32,
-        group_size_y: u32,
-        group_size_z: u32,
+        group_sizes: [u32; 3],
         additional_spec_consts: &[u32],
+        base_debug_name: String,
     ) -> Result<ComputeShader> {
         let mut spv_file = Cursor::new(std::fs::read(Path::new(&shader_path))?);
         let code = read_spv(&mut spv_file)?;
         let module_info = ShaderModuleCreateInfo::builder().code(&code);
-        let module = unsafe { device.as_ref().create_shader_module(&module_info, None) }?;
+        let module = unsafe { self.device.create_shader_module(&module_info, None) }?;
+        self.set_debug_object_name(
+            module.as_raw(),
+            ObjectType::SHADER_MODULE,
+            format!("{base_debug_name}_Compute_Shader_Module"),
+        )?;
 
         let mut spec_consts_data: Vec<u8> = vec![];
-        spec_consts_data.extend(group_size_x.to_ne_bytes());
-        spec_consts_data.extend(group_size_y.to_ne_bytes());
-        spec_consts_data.extend(group_size_z.to_ne_bytes());
+        spec_consts_data.extend(group_sizes[0].to_ne_bytes());
+        spec_consts_data.extend(group_sizes[1].to_ne_bytes());
+        spec_consts_data.extend(group_sizes[2].to_ne_bytes());
 
         for v in additional_spec_consts {
             spec_consts_data.extend(v.to_ne_bytes());
@@ -73,10 +75,14 @@ impl ComputeShader {
             .build();
 
         let desc_pool = unsafe {
-            device
-                .as_ref()
+            self.device
                 .create_descriptor_pool(&desc_pool_create_info, None)
         }?;
+        self.set_debug_object_name(
+            desc_pool.as_raw(),
+            ObjectType::DESCRIPTOR_POOL,
+            format!("{base_debug_name}_Descriptor_Pool"),
+        )?;
 
         let mut layout_bindings: Vec<DescriptorSetLayoutBinding> = Vec::new();
         let mut descriptor_buffers: Vec<DescriptorBufferInfo> = Vec::new();
@@ -104,17 +110,28 @@ impl ComputeShader {
             .build();
 
         let desc_set_layout = unsafe {
-            device
-                .as_ref()
+            self.device
                 .create_descriptor_set_layout(&desc_set_layout_info, None)?
         };
+        self.set_debug_object_name(
+            desc_set_layout.as_raw(),
+            ObjectType::DESCRIPTOR_SET_LAYOUT,
+            format!("{base_debug_name}_SSBO_Desc_Layout"),
+        )?;
 
         let alloc_info = ash::vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(desc_pool)
             .set_layouts(&[desc_set_layout])
             .build();
 
-        let desc_sets = unsafe { device.as_ref().allocate_descriptor_sets(&alloc_info)? };
+        let desc_sets = unsafe { self.device.allocate_descriptor_sets(&alloc_info)? };
+        for (i, set) in desc_sets.iter().enumerate(){
+            self.set_debug_object_name(
+                set.as_raw(),
+                ObjectType::DESCRIPTOR_SET,
+                format!("{base_debug_name}_SSBO_Set_{i}"),
+            )?;
+        }
 
         let mut write_sets: Vec<ash::vk::WriteDescriptorSet> = Vec::new();
         for (index, descriptor_buffer) in descriptor_buffers.iter().enumerate() {
@@ -130,43 +147,48 @@ impl ComputeShader {
         }
 
         unsafe {
-            device.as_ref().update_descriptor_sets(&write_sets, &[]);
+            self.device.update_descriptor_sets(&write_sets, &[]);
         }
 
-        let layout_info = PipelineLayoutCreateInfo::builder()
+        let pipeline_layout_info = PipelineLayoutCreateInfo::builder()
             .set_layouts(&[desc_set_layout])
             .push_constant_ranges(&push_constants_ranges)
             .build();
 
-        let layout = unsafe { device.as_ref().create_pipeline_layout(&layout_info, None)? };
+        let pipeline_layout = unsafe { self.device.create_pipeline_layout(&pipeline_layout_info, None)? };
+        self.set_debug_object_name(
+            pipeline_layout.as_raw(),
+            ObjectType::PIPELINE_LAYOUT,
+            format!("{base_debug_name}_Pipeline_Layout"),
+        )?;
 
         let pipeline_info = ComputePipelineCreateInfo::builder()
             .stage(*shader_stage_info)
-            .layout(layout);
+            .layout(pipeline_layout);
 
         let pipeline = unsafe {
-            device
-                .as_ref()
+            self.device
                 .create_compute_pipelines(PipelineCache::null(), &[*pipeline_info], None)
                 .unwrap()[0]
         };
+        self.set_debug_object_name(
+            pipeline.as_raw(),
+            ObjectType::PIPELINE,
+            format!("{base_debug_name}_Pipeline"),
+        )?;
 
-        unsafe {
-            device.as_ref().destroy_shader_module(module, None);
-        }
-
-        Ok(Self {
+        Ok(ComputeShader{
             pipeline,
-            layout,
+            layout: pipeline_layout,
             desc_pool,
             desc_set_layout,
             desc_sets,
-            group_size_x,
-            group_size_y,
-            group_size_z,
+            group_sizes,
         })
     }
+}
 
+impl ComputeShader{
     pub fn bind(&self, device: &Device, cmd_buffer: &CommandBuffer, constants: &[u8]) {
         unsafe {
             device.cmd_bind_pipeline(*cmd_buffer, PipelineBindPoint::COMPUTE, self.pipeline);
@@ -199,9 +221,9 @@ impl ComputeShader {
         unsafe {
             device.cmd_dispatch(
                 *cmd_buffer,
-                (dispatch_x / self.group_size_x).max(1),
-                (dispatch_y / self.group_size_y).max(1),
-                (dispatch_z / self.group_size_z).max(1),
+                (dispatch_x / self.group_sizes[0]).max(1),
+                (dispatch_y / self.group_sizes[1]).max(1),
+                (dispatch_z / self.group_sizes[2]).max(1),
             );
         }
     }

@@ -30,9 +30,9 @@ impl VMABuffer {
         })
     }
 
-    pub fn destroy(&self, allocator: &Allocator) -> Result<()> {
+    pub fn destroy(&self, vk_init: &VkInit) -> Result<()> {
         unsafe {
-            vk_mem_alloc::destroy_buffer(*allocator, self.buffer, self.allocation);
+            vk_mem_alloc::destroy_buffer(*vk_init.as_ref(), self.buffer, self.allocation);
         }
         Ok(())
     }
@@ -167,6 +167,9 @@ impl VMABuffer {
     ///
     /// Buffer needs to be created in host-visible memory and mapped.
     /// Use [create_cpu_to_gpu_buffer](VMABuffer::create_cpu_to_gpu_buffer) to allocate a compatible buffer.
+    /// 
+    /// # Valid usage:
+    /// - Validate input data type to avoid misalignment on GLSL side: usize vs uint
     ///
     /// ### Examples
     /// Useful for GLSL buffers with some starting data and any unbound data thereafter:
