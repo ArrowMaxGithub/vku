@@ -32,6 +32,7 @@ pub struct VkInitCreateInfo {
     pub surface_format: Format,
     pub frames_in_flight: u32,
     pub present_mode: PresentModeKHR,
+    pub clear_color_value: ClearColorValue,
 }
 
 impl VkInitCreateInfo {
@@ -65,13 +66,10 @@ impl VkInitCreateInfo {
                 .dynamic_rendering(true)
                 .build(),
             additional_device_extensions: vec![],
-            surface_format: if cfg!(target_os = "linux") {
-                Format::B8G8R8A8_UNORM
-            } else {
-                Format::R8G8B8A8_UNORM
-            },
+            surface_format: Format::R8G8B8A8_SRGB,
             frames_in_flight: 3,
             present_mode: PresentModeKHR::FIFO,
+            clear_color_value: ClearColorValue{float32: [0.0, 0.0, 0.0, 0.0]},
         }
     }
 
@@ -98,13 +96,10 @@ impl VkInitCreateInfo {
                 .dynamic_rendering(true)
                 .build(),
             additional_device_extensions: vec![],
-            surface_format: if cfg!(target_os = "linux") {
-                Format::B8G8R8A8_UNORM
-            } else {
-                Format::R8G8B8A8_UNORM
-            },
+            surface_format: Format::R8G8B8A8_SRGB,
             frames_in_flight: 3,
             present_mode: PresentModeKHR::IMMEDIATE,
+            clear_color_value: ClearColorValue{float32: [0.0, 0.0, 0.0, 0.0]},
         }
     }
 }

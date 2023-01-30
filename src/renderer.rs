@@ -40,53 +40,32 @@ impl Into<PipelineColorBlendAttachmentState> for BlendMode{
         match self{
             BlendMode::Opaque => {
                 PipelineColorBlendAttachmentState::builder()
-                    .color_write_mask(
-                        ColorComponentFlags::R
-                            | ColorComponentFlags::G
-                            | ColorComponentFlags::B
-                            | ColorComponentFlags::A,
-                    )
+                    .color_write_mask(ColorComponentFlags::RGBA)
                     .blend_enable(false)
-                    .color_blend_op(BlendOp::ADD)
-                    .src_color_blend_factor(BlendFactor::ONE)
-                    .src_alpha_blend_factor(BlendFactor::ONE)
-                    .alpha_blend_op(BlendOp::ADD)
-                    .dst_color_blend_factor(BlendFactor::ONE)
-                    .dst_alpha_blend_factor(BlendFactor::ONE)
                     .build()
             }
             BlendMode::TraditionalTransparency => {
                 PipelineColorBlendAttachmentState::builder()
-                    .color_write_mask(
-                        ColorComponentFlags::R
-                            | ColorComponentFlags::G
-                            | ColorComponentFlags::B
-                            | ColorComponentFlags::A,
-                    )
+                    .color_write_mask(ColorComponentFlags::RGBA)
                     .blend_enable(true)
                     .color_blend_op(BlendOp::ADD)
                     .src_color_blend_factor(BlendFactor::SRC_ALPHA)
-                    .src_alpha_blend_factor(BlendFactor::SRC_ALPHA)
+                    .src_alpha_blend_factor(BlendFactor::ONE)
                     .alpha_blend_op(BlendOp::ADD)
                     .dst_color_blend_factor(BlendFactor::ONE_MINUS_SRC_ALPHA)
-                    .dst_alpha_blend_factor(BlendFactor::ONE_MINUS_SRC_ALPHA)
+                    .dst_alpha_blend_factor(BlendFactor::ZERO)
                     .build()
             },
             BlendMode::PremultipliedTransparency => {
                 PipelineColorBlendAttachmentState::builder()
-                    .color_write_mask(
-                        ColorComponentFlags::R
-                            | ColorComponentFlags::G
-                            | ColorComponentFlags::B
-                            | ColorComponentFlags::A,
-                    )
+                    .color_write_mask(ColorComponentFlags::RGBA)
                     .blend_enable(true)
                     .color_blend_op(BlendOp::ADD)
                     .src_color_blend_factor(BlendFactor::ONE)
-                    .src_alpha_blend_factor(BlendFactor::ONE)
+                    .src_alpha_blend_factor(BlendFactor::ONE_MINUS_DST_ALPHA)
                     .alpha_blend_op(BlendOp::ADD)
                     .dst_color_blend_factor(BlendFactor::ONE_MINUS_SRC_ALPHA)
-                    .dst_alpha_blend_factor(BlendFactor::ONE_MINUS_SRC_ALPHA)
+                    .dst_alpha_blend_factor(BlendFactor::ONE)
                     .build()
             },
         }

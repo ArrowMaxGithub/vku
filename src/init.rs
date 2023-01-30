@@ -37,6 +37,7 @@ pub struct VkInit {
     pub swapchain: SwapchainKHR,
     pub swapchain_images: Vec<Image>,
     pub swapchain_image_views: Vec<ImageView>,
+    pub clear_color_value: ClearColorValue,
 }
 
 /// Abstraction over queue capability and command types since dedicated queues may not be available.
@@ -282,6 +283,7 @@ impl VkInit {
                 swapchain,
                 swapchain_images,
                 swapchain_image_views,
+                clear_color_value: create_info.clear_color_value,
             })
         }
     }
@@ -476,9 +478,7 @@ impl VkInit {
 
     pub fn begin_rendering(&self, swapchain_image_view: &ImageView, cmd_buffer: &CommandBuffer) {
         let clear_value = ClearValue {
-            color: ClearColorValue {
-                float32: [0.0, 0.0, 0.0, 0.0],
-            },
+            color: self.clear_color_value,
         };
         let render_area = Rect2D::builder()
             .offset(Offset2D { x: 0, y: 0 })
