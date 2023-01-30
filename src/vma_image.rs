@@ -61,10 +61,10 @@ impl VMAImage {
         })
     }
 
-    pub fn destroy(&self, device: &Device, vk_init: &VkInit) -> Result<()> {
+    pub fn destroy(&self, vk_init: &VkInit) -> Result<()> {
         unsafe {
             vk_mem_alloc::destroy_image(*vk_init.as_ref(), self.image, self.allocation);
-            device.destroy_image_view(self.image_view, None);
+            vk_init.device.destroy_image_view(self.image_view, None);
             self.staging_buffer.destroy(vk_init)?;
         }
         Ok(())

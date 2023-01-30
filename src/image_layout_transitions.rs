@@ -9,7 +9,6 @@ pub fn get_image_layout_transition_barrier2(
     dst_queue: Option<u32>,
 ) -> Result<ImageMemoryBarrier2> {
     let (src_access, dst_access, src_stage, dst_stage) = match (src_layout, dst_layout) {
-        //Creation -> Input
         (ImageLayout::UNDEFINED, ImageLayout::TRANSFER_DST_OPTIMAL) => (
             AccessFlags2::empty(),
             AccessFlags2::TRANSFER_WRITE,
@@ -17,7 +16,6 @@ pub fn get_image_layout_transition_barrier2(
             PipelineStageFlags2::TRANSFER,
         ),
 
-        //Creation -> Present
         (ImageLayout::UNDEFINED, ImageLayout::PRESENT_SRC_KHR) => (
             AccessFlags2::empty(),
             AccessFlags2::COLOR_ATTACHMENT_READ,
@@ -25,7 +23,6 @@ pub fn get_image_layout_transition_barrier2(
             PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
         ),
 
-        //Shader -> Input
         (ImageLayout::SHADER_READ_ONLY_OPTIMAL, ImageLayout::TRANSFER_DST_OPTIMAL) => (
             AccessFlags2::SHADER_READ,
             AccessFlags2::TRANSFER_WRITE,
@@ -33,7 +30,6 @@ pub fn get_image_layout_transition_barrier2(
             PipelineStageFlags2::TRANSFER,
         ),
 
-        //Shader -> Present
         (ImageLayout::SHADER_READ_ONLY_OPTIMAL, ImageLayout::PRESENT_SRC_KHR) => (
             AccessFlags2::SHADER_READ,
             AccessFlags2::COLOR_ATTACHMENT_READ,
@@ -41,7 +37,13 @@ pub fn get_image_layout_transition_barrier2(
             PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
         ),
 
-        //Input -> Shader
+        (ImageLayout::TRANSFER_DST_OPTIMAL, ImageLayout::TRANSFER_SRC_OPTIMAL) => (
+            AccessFlags2::TRANSFER_WRITE,
+            AccessFlags2::TRANSFER_READ,
+            PipelineStageFlags2::TRANSFER,
+            PipelineStageFlags2::TRANSFER,
+        ),
+
         (ImageLayout::TRANSFER_DST_OPTIMAL, ImageLayout::SHADER_READ_ONLY_OPTIMAL) => (
             AccessFlags2::TRANSFER_WRITE,
             AccessFlags2::SHADER_READ,
@@ -49,7 +51,6 @@ pub fn get_image_layout_transition_barrier2(
             PipelineStageFlags2::FRAGMENT_SHADER,
         ),
 
-        //Input -> Present
         (ImageLayout::TRANSFER_DST_OPTIMAL, ImageLayout::PRESENT_SRC_KHR) => (
             AccessFlags2::TRANSFER_WRITE,
             AccessFlags2::COLOR_ATTACHMENT_READ,
@@ -57,7 +58,6 @@ pub fn get_image_layout_transition_barrier2(
             PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
         ),
 
-        //Present -> Input
         (ImageLayout::PRESENT_SRC_KHR, ImageLayout::TRANSFER_DST_OPTIMAL) => (
             AccessFlags2::COLOR_ATTACHMENT_READ,
             AccessFlags2::TRANSFER_WRITE,
@@ -65,7 +65,6 @@ pub fn get_image_layout_transition_barrier2(
             PipelineStageFlags2::TRANSFER,
         ),
 
-        //Present -> Shader
         (ImageLayout::PRESENT_SRC_KHR, ImageLayout::SHADER_READ_ONLY_OPTIMAL) => (
             AccessFlags2::COLOR_ATTACHMENT_READ,
             AccessFlags2::SHADER_READ,

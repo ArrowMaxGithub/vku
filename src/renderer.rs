@@ -19,7 +19,6 @@ pub struct BaseRenderer {
     pub pipeline: Pipeline,
     pub descriptor_pool: DescriptorPool,
     pub sampled_image_desc_set_layout: DescriptorSetLayout,
-    pub sampled_image_desc_set: DescriptorSet,
     pub sampler: Sampler,
 }
 
@@ -116,12 +115,12 @@ impl VkInit {
 
         let sampled_image_size = [DescriptorPoolSize {
             ty: DescriptorType::COMBINED_IMAGE_SAMPLER,
-            descriptor_count: 1,
+            descriptor_count: 64,
         }];
 
         let descriptor_pool_info = DescriptorPoolCreateInfo::builder()
             .pool_sizes(&sampled_image_size)
-            .max_sets(1);
+            .max_sets(64); 
 
         let descriptor_pool = unsafe {
             self.device
@@ -133,6 +132,10 @@ impl VkInit {
             format!("{base_debug_name}_Descriptor_Pool"),
         )?;
 
+        let mut sampled_image_binding_flags = DescriptorSetLayoutBindingFlagsCreateInfo::builder()
+            .binding_flags(&[DescriptorBindingFlags::UPDATE_AFTER_BIND])
+            .build();
+
         let sampled_image_bindings = [DescriptorSetLayoutBinding::builder()
             .binding(0)
             .descriptor_type(DescriptorType::COMBINED_IMAGE_SAMPLER)
@@ -141,7 +144,10 @@ impl VkInit {
             .build()];
 
         let sampled_image_desc_set_layout_create_info =
-            DescriptorSetLayoutCreateInfo::builder().bindings(&sampled_image_bindings);
+            DescriptorSetLayoutCreateInfo::builder()
+            .bindings(&sampled_image_bindings)
+            .push_next(&mut sampled_image_binding_flags)
+            .build();
 
         let sampled_image_desc_set_layout = unsafe {
             self.device
@@ -152,21 +158,6 @@ impl VkInit {
             sampled_image_desc_set_layout.as_raw(),
             ObjectType::DESCRIPTOR_SET_LAYOUT,
             format!("{base_debug_name}_Sampled_Image_Desc_Layout"),
-        )?;
-
-        let sampled_image_desc_set_alloc_info = DescriptorSetAllocateInfo::builder()
-            .descriptor_pool(descriptor_pool)
-            .set_layouts(&[sampled_image_desc_set_layout])
-            .build();
-
-        let sampled_image_desc_set = unsafe {
-            self.device
-                .allocate_descriptor_sets(&sampled_image_desc_set_alloc_info)?[0]
-        };
-        self.set_debug_object_name(
-            sampled_image_desc_set.as_raw(),
-            ObjectType::DESCRIPTOR_SET,
-            format!("{base_debug_name}_Sampled_Image_Desc_Set"),
         )?;
 
         let sampler_info = SamplerCreateInfo::builder()
@@ -337,7 +328,6 @@ impl VkInit {
             pipeline,
             descriptor_pool,
             sampled_image_desc_set_layout,
-            sampled_image_desc_set,
             sampler,
         })
     }
