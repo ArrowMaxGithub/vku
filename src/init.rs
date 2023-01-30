@@ -520,8 +520,9 @@ impl VkInit {
     ) -> Result<()> {
         unsafe { self.device.end_command_buffer(*cmd_buffer)? };
 
+        let cmd_buffers = [*cmd_buffer];
         let mut submit_info = SubmitInfo::builder()
-            .command_buffers(&[*cmd_buffer])
+            .command_buffers(&cmd_buffers)
             .wait_dst_stage_mask(wait_dst_flags)
             .signal_semaphores(signal_sem)
             .wait_semaphores(wait_sem)
@@ -584,8 +585,9 @@ impl VkInit {
     pub fn present(&self, rendering_complete_semaphore: &Semaphore, frame: usize) -> Result<()> {
         let swapchains = [self.swapchain];
         let image_indices = [frame as u32];
+        let wait_sems = [*rendering_complete_semaphore];
         let present_info = ash::vk::PresentInfoKHR::builder()
-            .wait_semaphores(&[*rendering_complete_semaphore])
+            .wait_semaphores(&wait_sems)
             .swapchains(&swapchains)
             .image_indices(&image_indices)
             .build();

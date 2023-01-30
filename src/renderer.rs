@@ -214,8 +214,9 @@ impl VkInit {
             .stage_flags(ShaderStageFlags::VERTEX)
             .build()];
 
+        let set_layouts = [sampled_image_desc_set_layout];
         let pipeline_layout_create_info = PipelineLayoutCreateInfo::builder()
-            .set_layouts(&[sampled_image_desc_set_layout])
+            .set_layouts(&set_layouts)
             .push_constant_ranges(&push_constant_ranges)
             .build();
 

@@ -67,11 +67,13 @@ impl VkInit {
 
         let pool_size = DescriptorPoolSize::builder()
             .ty(DescriptorType::STORAGE_BUFFER)
-            .descriptor_count(ssbos.len() as u32);
+            .descriptor_count(ssbos.len() as u32)
+            .build();
 
+        let pool_sizes = [pool_size];
         let desc_pool_create_info = DescriptorPoolCreateInfo::builder()
             .max_sets(1)
-            .pool_sizes(&[*pool_size])
+            .pool_sizes(&pool_sizes)
             .build();
 
         let desc_pool = unsafe {
@@ -119,9 +121,10 @@ impl VkInit {
             format!("{base_debug_name}_SSBO_Desc_Layout"),
         )?;
 
+        let desc_set_layouts = [desc_set_layout];
         let alloc_info = ash::vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(desc_pool)
-            .set_layouts(&[desc_set_layout])
+            .set_layouts(&desc_set_layouts)
             .build();
 
         let desc_sets = unsafe { self.device.allocate_descriptor_sets(&alloc_info)? };
@@ -151,7 +154,7 @@ impl VkInit {
         }
 
         let pipeline_layout_info = PipelineLayoutCreateInfo::builder()
-            .set_layouts(&[desc_set_layout])
+            .set_layouts(&desc_set_layouts)
             .push_constant_ranges(&push_constants_ranges)
             .build();
 
