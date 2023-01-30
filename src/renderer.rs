@@ -120,7 +120,8 @@ impl VkInit {
 
         let descriptor_pool_info = DescriptorPoolCreateInfo::builder()
             .pool_sizes(&sampled_image_size)
-            .max_sets(64); 
+            .max_sets(64)
+            .flags(DescriptorPoolCreateFlags::UPDATE_AFTER_BIND); 
 
         let descriptor_pool = unsafe {
             self.device
@@ -146,6 +147,7 @@ impl VkInit {
         let sampled_image_desc_set_layout_create_info =
             DescriptorSetLayoutCreateInfo::builder()
             .bindings(&sampled_image_bindings)
+            .flags(DescriptorSetLayoutCreateFlags::UPDATE_AFTER_BIND_POOL)
             .push_next(&mut sampled_image_binding_flags)
             .build();
 

@@ -726,6 +726,8 @@ impl VkInit {
             let mut val_features = ValidationFeaturesEXT::builder()
                 .enabled_validation_features(&create_info.enabled_validation_features);
 
+            
+
             let mut instance_create_info = InstanceCreateInfo::builder()
                 .application_info(&app_info)
                 .enabled_layer_names(&enabled_layers_names_ptr)
@@ -961,7 +963,11 @@ impl VkInit {
 
         let mut pdevice_1_3_features = create_info.physical_device_1_3_features;
 
+        let mut desc_indexing_features = PhysicalDeviceDescriptorIndexingFeatures::builder()
+            .descriptor_binding_sampled_image_update_after_bind(true);
+
         device_create_info = device_create_info.push_next(&mut pdevice_1_3_features);
+        device_create_info = device_create_info.push_next(&mut desc_indexing_features);
 
         let device = instance.create_device(*physical_device, &device_create_info, None)?;
         Ok(device)

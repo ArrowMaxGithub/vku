@@ -98,7 +98,7 @@ impl VkInitCreateInfo {
             additional_device_extensions: vec![],
             surface_format: Format::R8G8B8A8_SRGB,
             frames_in_flight: 3,
-            present_mode: PresentModeKHR::IMMEDIATE,
+            present_mode: PresentModeKHR::FIFO,
             clear_color_value: ClearColorValue{float32: [0.0, 0.0, 0.0, 0.0]},
         }
     }
