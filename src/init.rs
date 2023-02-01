@@ -263,7 +263,7 @@ impl VkInit {
                 }
             }
 
-            info!("VkInit created successfully");
+            trace!("VkInit created successfully");
 
             Ok(Self {
                 info,
@@ -305,7 +305,7 @@ impl VkInit {
             self.instance.destroy_instance(None);
         }
 
-        info!("VkInit destroyed successfully");
+        trace!("VkInit destroyed successfully");
 
         Ok(())
     }
