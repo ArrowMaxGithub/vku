@@ -1,6 +1,6 @@
 use super::vma_buffer::VMABuffer;
 use crate::imports::Result;
-use crate::{imports::*, VkDestroy, VkInit};
+use crate::{imports::*, VkInit};
 
 pub struct ComputeShader {
     pipeline: Pipeline,
@@ -15,7 +15,7 @@ impl VkInit {
     pub fn create_compute_shader<Push>(
         &self,
         ssbos: &[&VMABuffer],
-        shader_path: String,
+        shader_path: &str,
         group_sizes: [u32; 3],
         additional_spec_consts: &[u32],
         base_debug_name: String,
@@ -192,6 +192,18 @@ impl VkInit {
 }
 
 impl ComputeShader{
+    pub fn destroy(&self, vk_init: &crate::VkInit) -> Result<()> {
+        unsafe {
+            vk_init.device.destroy_pipeline_layout(self.layout, None);
+            vk_init.device.destroy_pipeline(self.pipeline, None);
+            vk_init
+                .device
+                .destroy_descriptor_set_layout(self.desc_set_layout, None);
+            vk_init.device.destroy_descriptor_pool(self.desc_pool, None);
+        }
+        Ok(())
+    }
+
     pub fn bind(&self, device: &Device, cmd_buffer: &CommandBuffer, constants: &[u8]) {
         unsafe {
             device.cmd_bind_pipeline(*cmd_buffer, PipelineBindPoint::COMPUTE, self.pipeline);
@@ -229,19 +241,5 @@ impl ComputeShader{
                 (dispatch_z / self.group_sizes[2]).max(1),
             );
         }
-    }
-}
-
-impl VkDestroy for ComputeShader {
-    fn destroy(&self, vk_init: &crate::VkInit) -> Result<()> {
-        unsafe {
-            vk_init.device.destroy_pipeline_layout(self.layout, None);
-            vk_init.device.destroy_pipeline(self.pipeline, None);
-            vk_init
-                .device
-                .destroy_descriptor_set_layout(self.desc_set_layout, None);
-            vk_init.device.destroy_descriptor_pool(self.desc_pool, None);
-        }
-        Ok(())
     }
 }
