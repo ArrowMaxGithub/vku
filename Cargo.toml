@@ -13,7 +13,7 @@ vk-mem-alloc = "0.1.1"
 shaderc = "0.8.0"
 spirv-reflect = "0.2.3"
 env_logger = {version = "0.9.0", features = ["termcolor", "humantime"]}
-log = { version = "0.4.17", features = ["max_level_trace", "release_max_level_info"] }
+log = { version = "0.4.17"}
 anyhow = { version = "1.0", features = ["backtrace"] }
 derive-error = "0.0.5"
 

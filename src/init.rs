@@ -550,7 +550,7 @@ impl VkInit {
         cmd_buffers: &[&CommandBuffer],
     ) -> Result<()> {
         unsafe {
-            if let Some(fence) = fence{
+            if let Some(fence) = fence {
                 self.device.wait_for_fences(&[*fence], true, u64::MAX)?;
                 self.device.reset_fences(&[*fence])?;
             }
@@ -727,8 +727,6 @@ impl VkInit {
 
             let mut val_features = ValidationFeaturesEXT::builder()
                 .enabled_validation_features(&create_info.enabled_validation_features);
-
-            
 
             let mut instance_create_info = InstanceCreateInfo::builder()
                 .application_info(&app_info)

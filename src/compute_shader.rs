@@ -15,13 +15,11 @@ impl VkInit {
     pub fn create_compute_shader<Push>(
         &self,
         ssbos: &[&VMABuffer],
-        shader_path: &str,
+        code: Vec<u32>,
         group_sizes: [u32; 3],
         additional_spec_consts: &[u32],
         base_debug_name: String,
     ) -> Result<ComputeShader> {
-        let mut spv_file = Cursor::new(std::fs::read(Path::new(&shader_path))?);
-        let code = read_spv(&mut spv_file)?;
         let module_info = ShaderModuleCreateInfo::builder().code(&code);
         let module = unsafe { self.device.create_shader_module(&module_info, None) }?;
         self.set_debug_object_name(
@@ -128,7 +126,7 @@ impl VkInit {
             .build();
 
         let desc_sets = unsafe { self.device.allocate_descriptor_sets(&alloc_info)? };
-        for (i, set) in desc_sets.iter().enumerate(){
+        for (i, set) in desc_sets.iter().enumerate() {
             self.set_debug_object_name(
                 set.as_raw(),
                 ObjectType::DESCRIPTOR_SET,
@@ -158,7 +156,10 @@ impl VkInit {
             .push_constant_ranges(&push_constants_ranges)
             .build();
 
-        let pipeline_layout = unsafe { self.device.create_pipeline_layout(&pipeline_layout_info, None)? };
+        let pipeline_layout = unsafe {
+            self.device
+                .create_pipeline_layout(&pipeline_layout_info, None)?
+        };
         self.set_debug_object_name(
             pipeline_layout.as_raw(),
             ObjectType::PIPELINE_LAYOUT,
@@ -180,7 +181,7 @@ impl VkInit {
             format!("{base_debug_name}_Pipeline"),
         )?;
 
-        Ok(ComputeShader{
+        Ok(ComputeShader {
             pipeline,
             layout: pipeline_layout,
             desc_pool,
@@ -191,7 +192,7 @@ impl VkInit {
     }
 }
 
-impl ComputeShader{
+impl ComputeShader {
     pub fn destroy(&self, vk_init: &crate::VkInit) -> Result<()> {
         unsafe {
             vk_init.device.destroy_pipeline_layout(self.layout, None);

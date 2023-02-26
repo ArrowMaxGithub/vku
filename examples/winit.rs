@@ -32,7 +32,7 @@ pub fn try_main() -> Result<()> {
     let create_info = if cfg!(debug_assertions) {
         VkInitCreateInfo::debug_vk_1_3()
     } else {
-        VkInitCreateInfo::release_vk_1_3()
+        VkInitCreateInfo::dist_vk_1_3()
     };
 
     let vk_init = VkInit::new(&display_handle, &window_handle, size, &create_info)?;

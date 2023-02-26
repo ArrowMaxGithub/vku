@@ -167,7 +167,7 @@ impl VMABuffer {
     ///
     /// Buffer needs to be created in host-visible memory and mapped.
     /// Use [create_cpu_to_gpu_buffer](VMABuffer::create_cpu_to_gpu_buffer) to allocate a compatible buffer.
-    /// 
+    ///
     /// # Valid usage:
     /// - Validate input data type to avoid misalignment on GLSL side: usize vs uint
     ///

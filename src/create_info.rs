@@ -39,7 +39,7 @@ impl VkInitCreateInfo {
     /// Suitable for debug builds against Vulkan 1.3:
     /// - validation enalbed
     /// - best practices and synchronization checks enabled
-    /// - log level: >= warning
+    /// - log level: >= info
     /// - log messages: validation and performance
     ///
     /// Synchronization2 and dynamic rendering extensions enabled by default.
@@ -56,7 +56,8 @@ impl VkInitCreateInfo {
                 ValidationFeatureEnableEXT::SYNCHRONIZATION_VALIDATION,
             ],
             additional_instance_extensions: vec![],
-            log_level: DebugUtilsMessageSeverityFlagsEXT::WARNING
+            log_level: DebugUtilsMessageSeverityFlagsEXT::INFO
+                | DebugUtilsMessageSeverityFlagsEXT::WARNING
                 | DebugUtilsMessageSeverityFlagsEXT::ERROR,
             log_msg: DebugUtilsMessageTypeFlagsEXT::VALIDATION
                 | DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
@@ -69,16 +70,56 @@ impl VkInitCreateInfo {
             surface_format: Format::R8G8B8A8_SRGB,
             frames_in_flight: 3,
             present_mode: PresentModeKHR::FIFO,
-            clear_color_value: ClearColorValue{float32: [0.0, 0.0, 0.0, 0.0]},
+            clear_color_value: ClearColorValue {
+                float32: [0.0, 0.0, 0.0, 0.0],
+            },
         }
     }
 
-    /// Suitable for release builds against Vulkan 1.3:
+    /// Suitable for test release builds against Vulkan 1.3:
+    /// - validation enabled
+    /// - synchronization checks enabled
+    /// - log level: >= warn
+    /// - log messages: validation and performance
+    ///
+    /// Synchronization2 and dynamic rendering extensions enabled by default.
+    pub fn test_release_vk_1_3() -> Self {
+        Self {
+            app_name: String::from("Default app name"),
+            engine_name: String::from("Default engine name"),
+            app_version: make_api_version(0, 0, 0, 1),
+            vk_version: API_VERSION_1_3,
+            enable_validation: true,
+            enabled_validation_layers: vec![String::from("VK_LAYER_KHRONOS_validation")],
+            enabled_validation_features: vec![
+                ValidationFeatureEnableEXT::SYNCHRONIZATION_VALIDATION,
+                ValidationFeatureEnableEXT::BEST_PRACTICES,
+            ],
+            additional_instance_extensions: vec![],
+            log_level: DebugUtilsMessageSeverityFlagsEXT::WARNING,
+            log_msg: DebugUtilsMessageTypeFlagsEXT::VALIDATION
+                | DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
+            allow_igpu: false,
+            physical_device_1_3_features: PhysicalDeviceVulkan13Features::builder()
+                .synchronization2(true)
+                .dynamic_rendering(true)
+                .build(),
+            additional_device_extensions: vec![],
+            surface_format: Format::R8G8B8A8_SRGB,
+            frames_in_flight: 3,
+            present_mode: PresentModeKHR::FIFO,
+            clear_color_value: ClearColorValue {
+                float32: [0.0, 0.0, 0.0, 0.0],
+            },
+        }
+    }
+
+    /// Suitable for final release builds against Vulkan 1.3:
     /// - no validation
     /// - no logging
     ///
     /// Synchronization2 and dynamic rendering extensions enabled by default.
-    pub fn release_vk_1_3() -> Self {
+    pub fn dist_vk_1_3() -> Self {
         Self {
             app_name: String::from("Default app name"),
             engine_name: String::from("Default engine name"),
@@ -99,7 +140,9 @@ impl VkInitCreateInfo {
             surface_format: Format::R8G8B8A8_SRGB,
             frames_in_flight: 3,
             present_mode: PresentModeKHR::FIFO,
-            clear_color_value: ClearColorValue{float32: [0.0, 0.0, 0.0, 0.0]},
+            clear_color_value: ClearColorValue {
+                float32: [0.0, 0.0, 0.0, 0.0],
+            },
         }
     }
 }
