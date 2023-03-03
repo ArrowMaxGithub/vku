@@ -73,6 +73,7 @@ impl VkInit {
     where
         Vertex: VertexConvert,
     {
+        let head = self.head.as_ref().unwrap();
         let base_debug_name = &create_info.debug_name;
         let vertex_input_binding_desc = Vertex::convert_to_vertex_input_binding_desc();
         let vertex_input_atrtibute_desc = Vertex::convert_to_vertex_input_attrib_desc();
@@ -279,7 +280,7 @@ impl VkInit {
         let dynamic_states_info =
             PipelineDynamicStateCreateInfo::builder().dynamic_states(&dynamic_states);
 
-        let format = [self.info.surface_info.format.format];
+        let format = [head.surface_info.format.format];
         let mut pipeline_rendering_info = PipelineRenderingCreateInfo::builder()
             .color_attachment_formats(&format)
             .build();
@@ -331,10 +332,10 @@ impl VkInit {
     pub fn destroy_base_renderer(&self, renderer: &BaseRenderer) -> Result<()> {
         unsafe {
             for buffer in &renderer.index_buffers {
-                buffer.destroy(&self)?;
+                buffer.destroy(self)?;
             }
             for buffer in &renderer.vertex_buffers {
-                buffer.destroy(&self)?;
+                buffer.destroy(self)?;
             }
             self.device
                 .destroy_pipeline_layout(renderer.pipeline_layout, None);

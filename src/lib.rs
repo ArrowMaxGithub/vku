@@ -23,7 +23,7 @@
 //! let window_handle = window.raw_window_handle();
 //! let create_info = VkInitCreateInfo::default();
 //!
-//! let init = VkInit::new(&display_handle, &window_handle, size, &create_info).unwrap();
+//! let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
 //! ```
 //!
 //! ## Swapchain recreation:
@@ -37,7 +37,7 @@
 //! # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
 //! # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
 //! # let create_info = VkInitCreateInfo::default();
-//! let mut init = VkInit::new(&display_handle, &window_handle, size, &create_info).unwrap();
+//! let mut init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
 //!
 //! let new_size = [1200_u32, 900_u32];
 //! let in_flight = 3;
@@ -57,7 +57,7 @@
 //! # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
 //! # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
 //! # let create_info = VkInitCreateInfo::default();
-//! let init = VkInit::new(&display_handle, &window_handle, size, &create_info).unwrap();
+//! let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
 //! let setup_cmd_buffer_pool =
 //!     init.create_cmd_pool(CmdType::Any).unwrap();
 //! let setup_cmd_buffer =

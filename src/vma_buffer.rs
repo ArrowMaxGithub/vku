@@ -64,7 +64,7 @@ impl VMABuffer {
     /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
     /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(&display_handle, &window_handle, size, &create_info).unwrap();
+    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
     /// let size = 1024_usize;
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     ///
@@ -102,7 +102,7 @@ impl VMABuffer {
     /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
     /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(&display_handle, &window_handle, size, &create_info).unwrap();
+    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
     /// let size = 1024_usize;
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     ///
@@ -128,6 +128,27 @@ impl VMABuffer {
         Self::new(allocator, &buffer_info, &allocation_info)
     }
 
+    pub fn create_readback_buffer(
+        allocator: &Allocator,
+        size: usize,
+        usage: BufferUsageFlags,
+    ) -> Result<VMABuffer> {
+        let buffer_info = BufferCreateInfo::builder()
+            .size(size as u64)
+            .sharing_mode(SharingMode::EXCLUSIVE)
+            .usage(usage);
+
+        let allocation_info = AllocationCreateInfo {
+            usage: MemoryUsage::AUTO_PREFER_DEVICE,
+            flags: AllocationCreateFlags::MAPPED
+                | AllocationCreateFlags::HOST_ACCESS_RANDOM
+                | AllocationCreateFlags::MAPPED,
+            ..Default::default()
+        };
+
+        Self::new(allocator, &buffer_info, &allocation_info)
+    }
+
     /// Sets data on a mapped buffer.
     ///
     /// Buffer needs to be created in host-visible memory and mapped.
@@ -143,7 +164,7 @@ impl VMABuffer {
     /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
     /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(&display_handle, &window_handle, size, &create_info).unwrap();
+    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
     /// let size = 1024 * size_of::<usize>();
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     /// let buffer = init.create_cpu_to_gpu_buffer(size, usage).unwrap();
@@ -193,7 +214,7 @@ impl VMABuffer {
     /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
     /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(&display_handle, &window_handle, size, &create_info).unwrap();
+    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
     /// let size = 2 * size_of::<u32>() + 1024 * size_of::<f32>();
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     /// let buffer = init.create_cpu_to_gpu_buffer(size, usage).unwrap();
@@ -234,7 +255,7 @@ impl VMABuffer {
     /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
     /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(&display_handle, &window_handle, size, &create_info).unwrap();
+    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
     /// # let cmd_buffer_pool =
     /// #    init.create_cmd_pool(CmdType::Any).unwrap();
     /// # let cmd_buffer =
@@ -306,7 +327,7 @@ impl VMABuffer {
     /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
     /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(&display_handle, &window_handle, size, &create_info).unwrap();
+    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
     /// let size = 1024 * size_of::<u32>();
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     /// let buffer = init.create_cpu_to_gpu_buffer(size, usage).unwrap();
@@ -361,6 +382,14 @@ impl VkInit {
         usage: BufferUsageFlags,
     ) -> Result<VMABuffer> {
         VMABuffer::create_cpu_to_gpu_buffer(&self.allocator, size, usage)
+    }
+
+    pub fn create_readback_buffer(
+        &self,
+        size: usize,
+        usage: BufferUsageFlags,
+    ) -> Result<VMABuffer> {
+        VMABuffer::create_readback_buffer(&self.allocator, size, usage)
     }
 
     /// Shortcut - see [VMABuffer](VMABuffer::create_local_buffer) for example.

@@ -102,7 +102,7 @@ impl VMAImage {
     /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
     /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(&display_handle, &window_handle, size, &create_info).unwrap();
+    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
     ///
     /// let extent = Extent3D{width: 100, height: 100, depth: 1};
     /// let format = Format::R8G8B8A8_UNORM;
@@ -165,7 +165,7 @@ impl VMAImage {
     /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
     /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// # let init = VkInit::new(&display_handle, &window_handle, size, &create_info).unwrap();
+    /// # let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
     /// let extent = Extent3D{width: 100, height: 100, depth: 1};
     /// let format = Format::R8G8B8A8_UNORM;
     /// let aspect_flags = ImageAspectFlags::COLOR;
@@ -195,7 +195,7 @@ impl VMAImage {
     /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
     /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// # let init = VkInit::new(&display_handle, &window_handle, size, &create_info).unwrap();
+    /// # let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
     /// # let setup_cmd_buffer_pool =
     /// #     init.create_cmd_pool(CmdType::Any).unwrap();
     /// # let setup_cmd_buffer =

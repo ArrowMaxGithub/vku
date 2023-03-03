@@ -14,7 +14,6 @@ pub trait VkDestroy {
 /// - Optionally exposed dedicated compute and transfer queues
 /// - Shortcuts for present and submit operations
 pub struct VkInit {
-    pub info: VkInitInfo,
     /// [VMA](vk_mem_alloc::Allocator) allocator
     pub allocator: Allocator,
     pub entry: Entry,
@@ -31,6 +30,11 @@ pub struct VkInit {
     pub transfer_queue: Option<Queue>,
     /// Optionally exposed
     pub compute_queue: Option<Queue>,
+    pub physical_device_info: PhysicalDeviceInfo,
+    pub head: Option<Head>,
+}
+
+pub struct Head {
     pub surface_loader: Surface,
     pub surface: SurfaceKHR,
     pub swapchain_loader: Swapchain,
@@ -38,6 +42,7 @@ pub struct VkInit {
     pub swapchain_images: Vec<Image>,
     pub swapchain_image_views: Vec<ImageView>,
     pub clear_color_value: ClearColorValue,
+    pub surface_info: SurfaceInfo,
 }
 
 /// Abstraction over queue capability and command types since dedicated queues may not be available.
@@ -54,7 +59,7 @@ pub struct VkInit {
 /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
 /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
 /// # let create_info = VkInitCreateInfo::default();
-/// let init = VkInit::new(&display_handle, &window_handle, size, &create_info).unwrap();
+/// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
 ///
 /// let (compute_queue, compute_family_index) = init.get_queue(CmdType::Compute);
 pub enum CmdType {
@@ -66,10 +71,7 @@ pub enum CmdType {
 }
 
 /// Info wrapper around [PhysicalDeviceInfo](crate::init::PhysicalDeviceInfo) and [SurfaceInfo](crate::init::SurfaceInfo).
-pub struct VkInitInfo {
-    pub physical_device_info: PhysicalDeviceInfo,
-    pub surface_info: SurfaceInfo,
-}
+pub struct VkInitInfo {}
 
 /// Return info about the selected physical device and its capabilities.
 ///
@@ -102,6 +104,14 @@ pub struct SurfaceInfo {
 }
 
 impl VkInit {
+    ///```
+    /// use vku::{VkInitCreateInfo, VkInit};
+    /// let create_info = VkInitCreateInfo::default();
+    /// let init = VkInit::new(None, None, None, &create_info).unwrap();
+    /// ```
+    pub fn new_headless(create_info: &VkInitCreateInfo) -> Result<Self> {
+        Self::new(None, None, None, create_info)
+    }
     /// Creates a new VkInit Vulkan wrapper from raw display and window handles.
     ///
     /// All creation parameters are provided via [VkInitCreateInfo].
@@ -128,19 +138,15 @@ impl VkInit {
     /// let window_handle = window.raw_window_handle();
     /// let create_info = VkInitCreateInfo::default();
     ///
-    /// let init = VkInit::new(&display_handle, &window_handle, size, &create_info).unwrap();
+    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
     /// ```
     pub fn new(
-        display_handle: &RawDisplayHandle,
-        window_handle: &RawWindowHandle,
-        window_size: [u32; 2],
+        display_handle: Option<&RawDisplayHandle>,
+        window_handle: Option<&RawWindowHandle>,
+        window_size: Option<[u32; 2]>,
         create_info: &VkInitCreateInfo,
     ) -> Result<Self> {
         unsafe {
-            let window_extent = Extent2D {
-                width: window_size[0],
-                height: window_size[1],
-            };
             let entry = ash::Entry::linked();
             let (instance, debug_loader, debug_messenger) =
                 Self::create_instance_and_debug(&entry, display_handle, create_info)?;
@@ -155,33 +161,22 @@ impl VkInit {
             let allocator = Self::create_allocator(&instance, &physical_device, &device)?;
             let (unified_queue, transfer_queue, compute_queue) =
                 Self::create_queues(&device, &physical_device_info)?;
-            let (surface_loader, surface, surface_info) = Self::create_surface(
-                &entry,
-                &instance,
-                display_handle,
-                window_handle,
-                window_size,
-                &physical_device,
-                create_info,
-            )?;
-            let (swapchain_loader, swapchain) = Self::create_swapchain(
-                &instance,
-                &device,
-                &surface,
-                &surface_info,
-                &window_extent,
-                create_info.frames_in_flight,
-            )?;
-            let (swapchain_images, swapchain_image_views) = Self::create_swapchain_images(
-                &device,
-                &swapchain_loader,
-                &swapchain,
-                &surface_info,
-            )?;
 
-            let info = VkInitInfo {
-                physical_device_info,
-                surface_info,
+            let head = if let (Some(display_handle), Some(window_handle), Some(window_size)) =
+                (display_handle, window_handle, window_size)
+            {
+                Some(Self::create_head(
+                    &device,
+                    &entry,
+                    &instance,
+                    display_handle,
+                    window_handle,
+                    window_size,
+                    &physical_device,
+                    create_info,
+                )?)
+            } else {
+                None
             };
 
             //TODO: Why is RenderDoc crashing when Instance debug name is set?
@@ -227,46 +222,48 @@ impl VkInit {
                         "VKU_Compute_Queue".to_string(),
                     )?;
                 }
-                Self::set_debug_object_name_static(
-                    dbg,
-                    &device,
-                    surface.as_raw(),
-                    ObjectType::SURFACE_KHR,
-                    "VKU_SurfaceKHR".to_string(),
-                )?;
-                Self::set_debug_object_name_static(
-                    dbg,
-                    &device,
-                    swapchain.as_raw(),
-                    ObjectType::SWAPCHAIN_KHR,
-                    "VKU_SwapchainKHR".to_string(),
-                )?;
 
-                for (i, image) in swapchain_images.iter().enumerate() {
+                if let Some(head) = &head {
                     Self::set_debug_object_name_static(
                         dbg,
                         &device,
-                        image.as_raw(),
-                        ObjectType::IMAGE,
-                        format!("VKU_Image_{i}"),
+                        head.surface.as_raw(),
+                        ObjectType::SURFACE_KHR,
+                        "VKU_SurfaceKHR".to_string(),
                     )?;
-                }
-
-                for (i, image_view) in swapchain_image_views.iter().enumerate() {
                     Self::set_debug_object_name_static(
                         dbg,
                         &device,
-                        image_view.as_raw(),
-                        ObjectType::IMAGE_VIEW,
-                        format!("VKU_Image_View_{i}"),
+                        head.swapchain.as_raw(),
+                        ObjectType::SWAPCHAIN_KHR,
+                        "VKU_SwapchainKHR".to_string(),
                     )?;
+
+                    for (i, image) in head.swapchain_images.iter().enumerate() {
+                        Self::set_debug_object_name_static(
+                            dbg,
+                            &device,
+                            image.as_raw(),
+                            ObjectType::IMAGE,
+                            format!("VKU_Image_{i}"),
+                        )?;
+                    }
+
+                    for (i, image_view) in head.swapchain_image_views.iter().enumerate() {
+                        Self::set_debug_object_name_static(
+                            dbg,
+                            &device,
+                            image_view.as_raw(),
+                            ObjectType::IMAGE_VIEW,
+                            format!("VKU_Image_View_{i}"),
+                        )?;
+                    }
                 }
             }
 
             trace!("VkInit created successfully");
 
             Ok(Self {
-                info,
                 allocator,
                 entry,
                 instance,
@@ -277,13 +274,8 @@ impl VkInit {
                 unified_queue,
                 compute_queue,
                 transfer_queue,
-                surface_loader,
-                surface,
-                swapchain_loader,
-                swapchain,
-                swapchain_images,
-                swapchain_image_views,
-                clear_color_value: create_info.clear_color_value,
+                physical_device_info,
+                head,
             })
         }
     }
@@ -291,12 +283,14 @@ impl VkInit {
     pub fn destroy(&self) -> Result<()> {
         unsafe {
             self.device.device_wait_idle()?;
-            for image_view in &self.swapchain_image_views {
-                self.device.destroy_image_view(*image_view, None);
+            if let Some(head) = &self.head {
+                for image_view in &head.swapchain_image_views {
+                    self.device.destroy_image_view(*image_view, None);
+                }
+                head.swapchain_loader
+                    .destroy_swapchain(head.swapchain, None);
+                head.surface_loader.destroy_surface(head.surface, None);
             }
-            self.swapchain_loader
-                .destroy_swapchain(self.swapchain, None);
-            self.surface_loader.destroy_surface(self.surface, None);
             vk_mem_alloc::destroy_allocator(self.allocator);
             self.device.destroy_device(None);
             if let Some(dbg_loader) = &self.debug_loader {
@@ -451,16 +445,17 @@ impl VkInit {
         &self,
         acquire_img_semaphore: Semaphore,
     ) -> Result<(usize, Image, ImageView)> {
+        let head = self.head.as_ref().unwrap();
         let (index, _) = unsafe {
-            self.swapchain_loader.acquire_next_image(
-                self.swapchain,
+            head.swapchain_loader.acquire_next_image(
+                head.swapchain,
                 u64::MAX,
                 acquire_img_semaphore,
                 Fence::null(),
             )?
         };
-        let swapchain_image = self.swapchain_images[index as usize];
-        let swapchain_image_view = self.swapchain_image_views[index as usize];
+        let swapchain_image = head.swapchain_images[index as usize];
+        let swapchain_image_view = head.swapchain_image_views[index as usize];
         Ok((index as usize, swapchain_image, swapchain_image_view))
     }
 
@@ -477,12 +472,14 @@ impl VkInit {
     }
 
     pub fn begin_rendering(&self, swapchain_image_view: &ImageView, cmd_buffer: &CommandBuffer) {
+        let head = self.head.as_ref().unwrap();
+
         let clear_value = ClearValue {
-            color: self.clear_color_value,
+            color: head.clear_color_value,
         };
         let render_area = Rect2D::builder()
             .offset(Offset2D { x: 0, y: 0 })
-            .extent(self.info.surface_info.current_extent);
+            .extent(head.surface_info.current_extent);
 
         let color_attachment_info = [RenderingAttachmentInfo::builder()
             .image_view(*swapchain_image_view)
@@ -583,7 +580,8 @@ impl VkInit {
     }
 
     pub fn present(&self, rendering_complete_semaphore: &Semaphore, frame: usize) -> Result<()> {
-        let swapchains = [self.swapchain];
+        let head = self.head.as_ref().unwrap();
+        let swapchains = [head.swapchain];
         let image_indices = [frame as u32];
         let wait_sems = [*rendering_complete_semaphore];
         let present_info = ash::vk::PresentInfoKHR::builder()
@@ -593,7 +591,7 @@ impl VkInit {
             .build();
 
         unsafe {
-            self.swapchain_loader
+            head.swapchain_loader
                 .queue_present(self.unified_queue, &present_info)?;
         }
 
@@ -615,16 +613,15 @@ impl VkInit {
         match cmd_type {
             CmdType::Any => (
                 self.unified_queue,
-                self.info.physical_device_info.unified_queue_family_index,
+                self.physical_device_info.unified_queue_family_index,
             ),
             CmdType::Graphics => (
                 self.unified_queue,
-                self.info.physical_device_info.unified_queue_family_index,
+                self.physical_device_info.unified_queue_family_index,
             ),
             CmdType::Transfer => {
                 //TODO: Implement as if-let chains once stabilized
                 if self
-                    .info
                     .physical_device_info
                     .transfer_queue_family_index
                     .is_some()
@@ -632,22 +629,20 @@ impl VkInit {
                 {
                     (
                         self.transfer_queue.unwrap(),
-                        self.info
-                            .physical_device_info
+                        self.physical_device_info
                             .transfer_queue_family_index
                             .unwrap(),
                     )
                 } else {
                     (
                         self.unified_queue,
-                        self.info.physical_device_info.unified_queue_family_index,
+                        self.physical_device_info.unified_queue_family_index,
                     )
                 }
             }
             CmdType::Compute => {
                 //TODO: Implement as if-let chains once stabilized
                 if self
-                    .info
                     .physical_device_info
                     .compute_queue_family_index
                     .is_some()
@@ -655,15 +650,14 @@ impl VkInit {
                 {
                     (
                         self.compute_queue.unwrap(),
-                        self.info
-                            .physical_device_info
+                        self.physical_device_info
                             .compute_queue_family_index
                             .unwrap(),
                     )
                 } else {
                     (
                         self.unified_queue,
-                        self.info.physical_device_info.unified_queue_family_index,
+                        self.physical_device_info.unified_queue_family_index,
                     )
                 }
             }
@@ -690,7 +684,7 @@ impl VkInit {
 
     pub(crate) unsafe fn create_instance_and_debug(
         entry: &Entry,
-        display_handle: &RawDisplayHandle,
+        display_handle: Option<&RawDisplayHandle>,
         create_info: &VkInitCreateInfo,
     ) -> Result<(Instance, Option<DebugUtils>, Option<DebugUtilsMessengerEXT>)> {
         let app_info = ApplicationInfo::builder()
@@ -699,8 +693,10 @@ impl VkInit {
             .application_version(create_info.app_version)
             .api_version(create_info.vk_version);
 
-        let mut extensions_names =
-            ash_window::enumerate_required_extensions(*display_handle)?.to_vec();
+        let mut extensions_names = match display_handle {
+            Some(handle) => ash_window::enumerate_required_extensions(*handle)?.to_vec(),
+            None => vec![],
+        };
 
         for ext in &create_info.additional_instance_extensions {
             extensions_names.push(CStr::from_ptr(ext.as_ptr() as *const i8).as_ptr());
@@ -1066,15 +1062,19 @@ impl VkInit {
         device: &Device,
         surface: &SurfaceKHR,
         surface_info: &SurfaceInfo,
-        window_extent: &Extent2D,
+        window_size: [u32; 2],
         frames_in_flight: u32,
     ) -> Result<(Swapchain, SwapchainKHR)> {
+        let window_extent = Extent2D {
+            width: window_size[0],
+            height: window_size[1],
+        };
         let swapchain_create_info = SwapchainCreateInfoKHR::builder()
             .surface(*surface)
             .min_image_count(frames_in_flight)
             .image_color_space(surface_info.format.color_space)
             .image_format(surface_info.format.format)
-            .image_extent(*window_extent)
+            .image_extent(window_extent)
             .image_usage(ImageUsageFlags::COLOR_ATTACHMENT)
             .image_sharing_mode(SharingMode::EXCLUSIVE)
             .composite_alpha(CompositeAlphaFlagsKHR::OPAQUE)
@@ -1121,6 +1121,48 @@ impl VkInit {
         }
 
         Ok((images, image_views))
+    }
+
+    pub(crate) unsafe fn create_head(
+        device: &Device,
+        entry: &Entry,
+        instance: &Instance,
+        display_handle: &RawDisplayHandle,
+        window_handle: &RawWindowHandle,
+        window_size: [u32; 2],
+        physical_device: &PhysicalDevice,
+        create_info: &VkInitCreateInfo,
+    ) -> Result<Head> {
+        let (surface_loader, surface, surface_info) = Self::create_surface(
+            entry,
+            instance,
+            display_handle,
+            window_handle,
+            window_size,
+            physical_device,
+            create_info,
+        )?;
+        let (swapchain_loader, swapchain) = Self::create_swapchain(
+            instance,
+            device,
+            &surface,
+            &surface_info,
+            window_size,
+            create_info.frames_in_flight,
+        )?;
+        let (swapchain_images, swapchain_image_views) =
+            Self::create_swapchain_images(device, &swapchain_loader, &swapchain, &surface_info)?;
+
+        Ok(Head {
+            surface_loader,
+            surface,
+            swapchain_loader,
+            swapchain,
+            swapchain_images,
+            swapchain_image_views,
+            clear_color_value: create_info.clear_color_value,
+            surface_info,
+        })
     }
 }
 

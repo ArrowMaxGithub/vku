@@ -35,7 +35,12 @@ pub fn try_main() -> Result<()> {
         VkInitCreateInfo::dist_vk_1_3()
     };
 
-    let vk_init = VkInit::new(&display_handle, &window_handle, size, &create_info)?;
+    let vk_init = VkInit::new(
+        Some(&display_handle),
+        Some(&window_handle),
+        Some(size),
+        &create_info,
+    )?;
 
     let mut start_time = Instant::now();
 
