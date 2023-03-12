@@ -12,6 +12,7 @@ pub struct ComputeShader {
 }
 
 impl VkInit {
+    #[profile]
     pub fn create_compute_shader<Push>(
         &self,
         ssbos: &[&VMABuffer],
@@ -193,6 +194,7 @@ impl VkInit {
 }
 
 impl ComputeShader {
+    #[profile]
     pub fn destroy(&self, vk_init: &crate::VkInit) -> Result<()> {
         unsafe {
             vk_init.device.destroy_pipeline_layout(self.layout, None);
@@ -205,7 +207,8 @@ impl ComputeShader {
         Ok(())
     }
 
-    pub fn bind(&self, device: &Device, cmd_buffer: &CommandBuffer, constants: &[u8]) {
+    #[profile]
+    pub fn bind(&self, device: &ash::Device, cmd_buffer: &CommandBuffer, constants: &[u8]) {
         unsafe {
             device.cmd_bind_pipeline(*cmd_buffer, PipelineBindPoint::COMPUTE, self.pipeline);
             device.cmd_bind_descriptor_sets(
@@ -226,9 +229,10 @@ impl ComputeShader {
         }
     }
 
+    #[profile]
     pub fn dispatch(
         &self,
-        device: &Device,
+        device: &ash::Device,
         cmd_buffer: &CommandBuffer,
         dispatch_x: u32,
         dispatch_y: u32,

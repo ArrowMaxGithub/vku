@@ -15,6 +15,7 @@ pub struct VMAImage {
 }
 
 impl VMAImage {
+    #[profile]
     fn new(
         device: &Device,
         allocator: &Allocator,
@@ -61,6 +62,7 @@ impl VMAImage {
         })
     }
 
+    #[profile]
     pub fn destroy(&self, vk_init: &VkInit) -> Result<()> {
         unsafe {
             vk_mem_alloc::destroy_image(*vk_init.as_ref(), self.image, self.allocation);
@@ -70,6 +72,7 @@ impl VMAImage {
         Ok(())
     }
 
+    #[profile]
     pub fn set_debug_object_name(&self, vk_init: &VkInit, base_name: String) -> Result<()> {
         vk_init.set_debug_object_name(
             self.image.as_raw(),
@@ -109,6 +112,7 @@ impl VMAImage {
     /// let aspect_flags = ImageAspectFlags::COLOR;
     ///
     /// let image = init.create_empty_image(extent, format, aspect_flags).unwrap();
+    #[profile]
     pub fn create_empty_image(
         device: &Device,
         allocator: &Allocator,
@@ -173,6 +177,7 @@ impl VMAImage {
     /// let data = [42_u32; 100*100];
     ///
     /// image.set_staging_data(&data).unwrap();
+    #[profile]
     pub fn set_staging_data<T>(&self, data: &[T]) -> Result<()>
     where
         T: Sized + Copy + Clone,
@@ -232,6 +237,7 @@ impl VMAImage {
     ///     &[],    
     /// ).unwrap();
     /// ```
+    #[profile]
     pub fn enque_copy_from_staging_buffer_to_image<D: AsRef<Device>>(
         &self,
         device: D,
@@ -274,6 +280,7 @@ impl VMAImage {
     /// **Defaults**:
     /// - src_queue: 0
     /// - dst_queue: 0
+    #[profile]
     pub fn get_image_layout_transition_barrier2(
         &mut self,
         dst_layout: ImageLayout,
@@ -296,6 +303,7 @@ impl VMAImage {
 
 impl VkInit {
     /// Shortcut - see [VMAImage](VMAImage::create_empty_image) for example.
+    #[profile]
     pub fn create_empty_image(
         &self,
         extent: Extent3D,

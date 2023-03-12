@@ -27,3 +27,4 @@ pub(crate) fn char_array_to_string(chars: &[i8; 256]) -> Result<String, Utf8Erro
     let string = string_raw.to_str()?.to_owned();
     Ok(string)
 }
+pub(crate) use optick_attr::profile;

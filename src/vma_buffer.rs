@@ -9,6 +9,7 @@ pub struct VMABuffer {
 }
 
 impl VMABuffer {
+    #[profile]
     fn new(
         allocator: &Allocator,
         buffer_info: &BufferCreateInfo,
@@ -30,6 +31,7 @@ impl VMABuffer {
         })
     }
 
+    #[profile]
     pub fn destroy(&self, vk_init: &VkInit) -> Result<()> {
         unsafe {
             vk_mem_alloc::destroy_buffer(*vk_init.as_ref(), self.buffer, self.allocation);
@@ -37,6 +39,7 @@ impl VMABuffer {
         Ok(())
     }
 
+    #[profile]
     pub fn set_debug_object_name(&self, vk_init: &VkInit, base_name: String) -> Result<()> {
         vk_init.set_debug_object_name(
             self.buffer.as_raw(),
@@ -70,6 +73,7 @@ impl VMABuffer {
     ///
     /// let buffer = VMABuffer::create_local_buffer(&init.allocator, size, usage).unwrap();
     /// let buffer_shortcut = init.create_local_buffer(size, usage).unwrap();
+    #[profile]
     pub fn create_local_buffer(
         allocator: &Allocator,
         size: usize,
@@ -108,6 +112,7 @@ impl VMABuffer {
     ///
     /// let buffer = VMABuffer::create_cpu_to_gpu_buffer(&init.allocator, size, usage).unwrap();
     /// let buffer_shortcut = init.create_cpu_to_gpu_buffer(size, usage).unwrap();
+    #[profile]
     pub fn create_cpu_to_gpu_buffer(
         allocator: &Allocator,
         size: usize,
@@ -128,6 +133,7 @@ impl VMABuffer {
         Self::new(allocator, &buffer_info, &allocation_info)
     }
 
+    #[profile]
     pub fn create_readback_buffer(
         allocator: &Allocator,
         size: usize,
@@ -172,6 +178,7 @@ impl VMABuffer {
     /// let data = [42_usize; 1024];
     /// buffer.set_data(&data).unwrap();
     /// ```
+    #[profile]
     pub fn set_data<T>(&self, data: &[T]) -> Result<()> {
         if !self.is_mapped {
             return Err(anyhow!("Tried to set_data on an unmapped buffer"));
@@ -223,6 +230,7 @@ impl VMABuffer {
     /// let data = [42.0; 1024];
     /// buffer.set_data_with_start_data(&start_data, &data).unwrap();
     /// ```
+    #[profile]
     pub fn set_data_with_start_data<T, U>(&self, start_data: &[U], data: &[T]) -> Result<()> {
         let ptr = self.allocation_info.mapped_data as *mut U;
         unsafe {
@@ -279,6 +287,7 @@ impl VMABuffer {
     ///     None
     ///     ).unwrap();
     /// ```
+    #[profile]
     pub fn enqueue_copy_to_buffer<D: AsRef<Device>>(
         &self,
         device: D,
@@ -343,6 +352,7 @@ impl VMABuffer {
     ///     );
     /// ```
     #[allow(clippy::too_many_arguments)]
+    #[profile]
     pub fn get_barrier2(
         &self,
         src_stage: PipelineStageFlags2,
@@ -372,10 +382,12 @@ impl VMABuffer {
 
 impl VkInit {
     /// Shortcut - see [VMABuffer](VMABuffer::create_local_buffer) for example.
+    #[profile]
     pub fn create_local_buffer(&self, size: usize, usage: BufferUsageFlags) -> Result<VMABuffer> {
         VMABuffer::create_local_buffer(&self.allocator, size, usage)
     }
     /// Shortcut - see [VMABuffer](VMABuffer::create_cpu_to_gpu_buffer) for example.
+    #[profile]
     pub fn create_cpu_to_gpu_buffer(
         &self,
         size: usize,
@@ -384,6 +396,7 @@ impl VkInit {
         VMABuffer::create_cpu_to_gpu_buffer(&self.allocator, size, usage)
     }
 
+    #[profile]
     pub fn create_readback_buffer(
         &self,
         size: usize,
@@ -393,6 +406,7 @@ impl VkInit {
     }
 
     /// Shortcut - see [VMABuffer](VMABuffer::create_local_buffer) for example.
+    #[profile]
     pub fn create_local_buffers(
         &self,
         size: usize,
@@ -407,6 +421,7 @@ impl VkInit {
         Ok(buffers)
     }
     /// Shortcut - see [VMABuffer](VMABuffer::create_cpu_to_gpu_buffer) for example.
+    #[profile]
     pub fn create_cpu_to_gpu_buffers(
         &self,
         size: usize,

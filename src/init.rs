@@ -109,6 +109,7 @@ impl VkInit {
     /// let create_info = VkInitCreateInfo::default();
     /// let init = VkInit::new(None, None, None, &create_info).unwrap();
     /// ```
+    #[profile]
     pub fn new_headless(create_info: &VkInitCreateInfo) -> Result<Self> {
         Self::new(None, None, None, create_info)
     }
@@ -140,6 +141,7 @@ impl VkInit {
     ///
     /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
     /// ```
+    #[profile]
     pub fn new(
         display_handle: Option<&RawDisplayHandle>,
         window_handle: Option<&RawWindowHandle>,
@@ -278,6 +280,7 @@ impl VkInit {
         }
     }
 
+    #[profile]
     pub fn destroy(&self) -> Result<()> {
         unsafe {
             self.device.device_wait_idle()?;
@@ -300,6 +303,7 @@ impl VkInit {
         Ok(())
     }
 
+    #[profile]
     pub fn set_debug_object_name(
         &self,
         obj_handle: u64,
@@ -321,6 +325,7 @@ impl VkInit {
         Ok(())
     }
 
+    #[profile]
     pub fn insert_debug_label(&self, cmd_buffer: &CommandBuffer, name: &str) -> Result<()> {
         if let Some(dbg) = &self.debug_loader {
             let label_info = DebugUtilsLabelEXT::builder()
@@ -332,6 +337,7 @@ impl VkInit {
         Ok(())
     }
 
+    #[profile]
     pub fn begin_debug_label(&self, cmd_buffer: &CommandBuffer, name: &str) -> Result<()> {
         if let Some(dbg) = &self.debug_loader {
             let label_info = DebugUtilsLabelEXT::builder()
@@ -343,6 +349,7 @@ impl VkInit {
         Ok(())
     }
 
+    #[profile]
     pub fn end_debug_label(&self, cmd_buffer: &CommandBuffer) -> Result<()> {
         if let Some(dbg) = &self.debug_loader {
             unsafe { dbg.cmd_end_debug_utils_label(*cmd_buffer) };
@@ -350,6 +357,7 @@ impl VkInit {
         Ok(())
     }
 
+    #[profile]
     pub fn create_cmd_pool(&self, cmd_type: CmdType) -> Result<CommandPool> {
         let (_, queue_family_index) = self.get_queue(cmd_type);
         let create_info = CommandPoolCreateInfo::builder()
@@ -360,6 +368,7 @@ impl VkInit {
         Ok(command_pool)
     }
 
+    #[profile]
     pub fn create_command_buffers(
         &self,
         pool: &CommandPool,
@@ -375,6 +384,7 @@ impl VkInit {
     }
 
     /// Creates a signaled fence.
+    #[profile]
     pub fn create_fence(&self) -> Result<Fence> {
         let create_info = FenceCreateInfo::builder().flags(FenceCreateFlags::SIGNALED);
         let fence = unsafe { self.device.create_fence(&create_info, None)? };
@@ -383,6 +393,7 @@ impl VkInit {
     }
 
     /// Creates a Vec of signaled fence.
+    #[profile]
     pub fn create_fences(&self, count: usize) -> Result<Vec<Fence>> {
         let mut fences = Vec::new();
         for _ in 0..count {
@@ -394,6 +405,7 @@ impl VkInit {
         Ok(fences)
     }
 
+    #[profile]
     pub fn destroy_fence(&self, fence: &Fence) -> Result<()> {
         unsafe {
             self.device.destroy_fence(*fence, None);
@@ -402,6 +414,7 @@ impl VkInit {
         Ok(())
     }
 
+    #[profile]
     pub fn create_semaphore(&self) -> Result<Semaphore> {
         let create_info = SemaphoreCreateInfo::default();
         let semaphore = unsafe { self.device.create_semaphore(&create_info, None)? };
@@ -409,6 +422,7 @@ impl VkInit {
         Ok(semaphore)
     }
 
+    #[profile]
     pub fn create_semaphores(&self, count: usize) -> Result<Vec<Semaphore>> {
         let mut semaphores = Vec::new();
         for _ in 0..count {
@@ -420,6 +434,7 @@ impl VkInit {
         Ok(semaphores)
     }
 
+    #[profile]
     pub fn destroy_semaphore(&self, semaphore: &Semaphore) -> Result<()> {
         unsafe {
             self.device.destroy_semaphore(*semaphore, None);
@@ -428,6 +443,7 @@ impl VkInit {
         Ok(())
     }
 
+    #[profile]
     pub fn destroy_cmd_pool(&self, pool: &CommandPool) -> Result<()> {
         unsafe {
             self.device.destroy_command_pool(*pool, None);
@@ -437,24 +453,26 @@ impl VkInit {
     }
 
     /// Acquires image for frame ```frame``` and signals sempahore ```acquire_img_semaphore```.
+    #[profile]
     pub fn acquire_next_swapchain_image(
         &self,
         acquire_img_semaphore: Semaphore,
-    ) -> Result<(usize, Image, ImageView)> {
+    ) -> Result<(usize, Image, ImageView, bool)> {
         let head = self.head.as_ref().unwrap();
-        let (index, _) = unsafe {
+        let (index, sub_optimal) = unsafe {
             head.swapchain_loader.acquire_next_image(
                 head.swapchain,
-                u64::MAX,
+                1000 * 1000 * 1000, //One second
                 acquire_img_semaphore,
                 Fence::null(),
             )?
         };
         let swapchain_image = head.swapchain_images[index as usize];
         let swapchain_image_view = head.swapchain_image_views[index as usize];
-        Ok((index as usize, swapchain_image, swapchain_image_view))
+        Ok((index as usize, swapchain_image, swapchain_image_view, sub_optimal))
     }
 
+    #[profile]
     pub fn begin_cmd_buffer(&self, cmd_buffer: &CommandBuffer) -> Result<()> {
         let cmd_buffer_begin_info =
             CommandBufferBeginInfo::builder().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
@@ -467,6 +485,7 @@ impl VkInit {
         Ok(())
     }
 
+    #[profile]
     pub fn begin_rendering(&self, swapchain_image_view: &ImageView, cmd_buffer: &CommandBuffer) {
         let head = self.head.as_ref().unwrap();
 
@@ -496,12 +515,14 @@ impl VkInit {
         }
     }
 
+    #[profile]
     pub fn end_rendering(&self, cmd_buffer: &CommandBuffer) {
         unsafe {
             self.device.cmd_end_rendering(*cmd_buffer);
         }
     }
 
+    #[profile]
     pub fn end_and_submit_cmd_buffer(
         &self,
         cmd_buffer: &CommandBuffer,
@@ -537,6 +558,7 @@ impl VkInit {
         Ok(())
     }
 
+    #[profile]
     pub fn wait_on_fence_and_reset(
         &self,
         fence: Option<&Fence>,
@@ -557,6 +579,7 @@ impl VkInit {
         Ok(())
     }
 
+    #[profile]
     pub fn cmd_pipeline_barrier2(
         &self,
         cmd_buffer: &CommandBuffer,
@@ -575,6 +598,7 @@ impl VkInit {
         }
     }
 
+    #[profile]
     pub fn present(&self, rendering_complete_semaphore: &Semaphore, frame: usize) -> Result<()> {
         let head = self.head.as_ref().unwrap();
         let swapchains = [head.swapchain];
@@ -594,6 +618,7 @@ impl VkInit {
         Ok(())
     }
 
+    #[profile]
     pub fn wait_device_idle(&self) -> Result<()> {
         unsafe {
             self.device.device_wait_idle()?;
@@ -605,6 +630,7 @@ impl VkInit {
     /// Gets the queue and queue family index for the given [CmdType].
     ///
     /// If there is e.g. no dedicated compute queue, this will fallback to the guarenteed unified queue.
+    #[profile]
     pub fn get_queue(&self, cmd_type: CmdType) -> (Queue, u32) {
         match cmd_type {
             CmdType::Any => (
@@ -660,6 +686,7 @@ impl VkInit {
         }
     }
 
+    #[profile]
     fn set_debug_object_name_static(
         dbg: &DebugUtils,
         device: &Device,
@@ -678,6 +705,7 @@ impl VkInit {
         Ok(())
     }
 
+    #[profile]
     pub(crate) unsafe fn create_instance_and_debug(
         entry: &Entry,
         display_handle: Option<&RawDisplayHandle>,
@@ -781,6 +809,7 @@ impl VkInit {
         }
     }
 
+    #[profile]
     pub(crate) unsafe fn create_physical_device(
         instance: &Instance,
         create_info: &VkInitCreateInfo,
@@ -888,6 +917,7 @@ impl VkInit {
         Err(anyhow!(VkInitError::NoSuitableGPUFound))
     }
 
+    #[profile]
     pub(crate) unsafe fn create_device(
         instance: &Instance,
         physical_device: &PhysicalDevice,
@@ -965,6 +995,7 @@ impl VkInit {
         Ok(device)
     }
 
+    #[profile]
     pub(crate) unsafe fn create_allocator(
         instance: &Instance,
         physical_device: &PhysicalDevice,
@@ -974,6 +1005,7 @@ impl VkInit {
         Ok(allocator)
     }
 
+    #[profile]
     pub(crate) unsafe fn create_queues(
         device: &Device,
         physical_device_info: &PhysicalDeviceInfo,
@@ -990,6 +1022,7 @@ impl VkInit {
         Ok((unified_queue, transfer_queue, compute_queue))
     }
 
+    #[profile]
     pub(crate) unsafe fn create_surface(
         entry: &Entry,
         instance: &Instance,
@@ -1021,11 +1054,15 @@ impl VkInit {
         let capabilities =
             loader.get_physical_device_surface_capabilities(*physical_device, surface)?;
 
+        let max_frame = capabilities.max_image_count;
+        trace!("max supported frames in flight: {max_frame}");
+
+        let min_frame = capabilities.min_image_count;
+        trace!("min supported frames in flight: {min_frame}");
+
         if capabilities.max_image_count != 0
-            && create_info.frames_in_flight > capabilities.max_image_count
+            && create_info.frames_in_flight + 1 > capabilities.max_image_count
         {
-            let max_frame = capabilities.max_image_count;
-            trace!("max supported frames in flight: {max_frame}");
             return Err(anyhow!(VkInitError::InsufficientFramesInFlightSupported));
         }
 
@@ -1053,6 +1090,7 @@ impl VkInit {
         Ok((loader, surface, surface_info))
     }
 
+    #[profile]
     pub(crate) unsafe fn create_swapchain(
         instance: &Instance,
         device: &Device,
@@ -1067,7 +1105,7 @@ impl VkInit {
         };
         let swapchain_create_info = SwapchainCreateInfoKHR::builder()
             .surface(*surface)
-            .min_image_count(frames_in_flight)
+            .min_image_count(frames_in_flight + 1)
             .image_color_space(surface_info.format.color_space)
             .image_format(surface_info.format.format)
             .image_extent(window_extent)
@@ -1085,6 +1123,7 @@ impl VkInit {
         Ok((loader, swapchain))
     }
 
+    #[profile]
     pub(crate) unsafe fn create_swapchain_images(
         device: &Device,
         swapchain_loader: &Swapchain,
@@ -1119,6 +1158,7 @@ impl VkInit {
         Ok((images, image_views))
     }
 
+    #[profile]
     pub(crate) unsafe fn create_head(
         device: &Device,
         entry: &Entry,

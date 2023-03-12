@@ -1,5 +1,6 @@
 use crate::{errors::ImageLayoutTransitionError, imports::*};
 
+#[profile]
 pub fn get_image_layout_transition_barrier2(
     image: &Image,
     src_layout: ImageLayout,
