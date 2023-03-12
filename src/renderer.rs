@@ -186,21 +186,11 @@ impl VkInit {
             self.device
                 .create_shader_module(&vertex_shader_info, None)?
         };
-        self.set_debug_object_name(
-            vertex_shader_module.as_raw(),
-            ObjectType::SHADER_MODULE,
-            format!("{base_debug_name}_Vertex_Shader_Module"),
-        )?;
 
         let fragment_shader_module = unsafe {
             self.device
                 .create_shader_module(&fragment_shader_info, None)?
         };
-        self.set_debug_object_name(
-            fragment_shader_module.as_raw(),
-            ObjectType::SHADER_MODULE,
-            format!("{base_debug_name}_Fragment_Shader_Module"),
-        )?;
 
         let push_constant_ranges = [PushConstantRange::builder()
             .offset(0)
@@ -311,12 +301,12 @@ impl VkInit {
             format!("{base_debug_name}_Pipeline"),
         )?;
 
-        // unsafe {
-        //     self.device
-        //         .destroy_shader_module(vertex_shader_module, None);
-        //     self.device
-        //         .destroy_shader_module(fragment_shader_module, None);
-        // }
+        unsafe {
+            self.device
+                .destroy_shader_module(vertex_shader_module, None);
+            self.device
+                .destroy_shader_module(fragment_shader_module, None);
+        }
 
         Ok(BaseRenderer {
             vertex_buffers,

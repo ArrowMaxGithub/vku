@@ -261,8 +261,6 @@ impl VkInit {
                 }
             }
 
-            trace!("VkInit created successfully");
-
             Ok(Self {
                 allocator,
                 entry,
@@ -298,8 +296,6 @@ impl VkInit {
             }
             self.instance.destroy_instance(None);
         }
-
-        trace!("VkInit destroyed successfully");
 
         Ok(())
     }
