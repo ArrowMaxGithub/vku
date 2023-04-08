@@ -11,8 +11,7 @@ use log::error;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use std::{
     error::Error,
-    fs::File,
-    io::{Read, Write},
+    io::Write,
     time::Instant,
 };
 use vku::{VkInit, VkInitCreateInfo};

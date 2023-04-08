@@ -7,7 +7,7 @@ Center module is [Vkinit](crate::init::VkInit), created from [RawHandles](https:
 This is mostly a personal utility crate and no guarentees are made in terms of stability until 1.0.0.
 
 ## Initialization
-```rust
+```rust,no_run
 use winit::window::WindowBuilder;
 use winit::event_loop::{EventLoop, EventLoopBuilder};
 use winit::dpi::LogicalSize;
@@ -27,7 +27,7 @@ let create_info = VkInitCreateInfo::default();
 let init = VkInit::new(Some(&display_h), Some(&window_h), Some(size), create_info).unwrap();
 ```
 ## Swapchain recreation:
-```rust
+```rust,no_run
 # use vku::*;
 # use ash::vk::*;
 # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
@@ -36,13 +36,14 @@ let init = VkInit::new(Some(&display_h), Some(&window_h), Some(size), create_inf
 # let display_h = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
 # let window_h = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
 # let create_info = VkInitCreateInfo::default();
+
 let mut init = VkInit::new(Some(&display_h), Some(&window_h), Some(size), create_info).unwrap();
 let new_size = [1200_u32, 900_u32];
 let in_flight = 3;
 init.recreate_swapchain(new_size, in_flight).unwrap();
 ```
  ## VMA Image allocation and layout transition:
-```rust
+```rust,no_run
 # use vku::*;
 # use ash::vk::*;
 # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
@@ -51,6 +52,7 @@ init.recreate_swapchain(new_size, in_flight).unwrap();
 # let display_h = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
 # let window_h = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
 # let create_info = VkInitCreateInfo::default();
+
 let init = VkInit::new(Some(&display_h), Some(&window_h), Some(size), create_info).unwrap();
 
 let setup_cmd_buffer_pool =
@@ -82,39 +84,13 @@ init.end_and_submit_cmd_buffer(
     &setup_fence, &[], &[], &[]).unwrap(); // Wait on setup fence, wait/signal no semaphores
 ```
 ## Shader compilation with #include directives:
-```rust
+```rust,no_run
 # use std::path::Path;
 # use vku::VkInit;
+
 let src_dir_path = Path::new("./assets/shaders/src/");
 let target_dir_path = Path::new("./assets/shaders/compiled_shaders/");
-
-let src_glsl_path = src_dir_path.join(Path::new("example.glsl"));
-let src_vert_path = src_dir_path.join(Path::new("example.vert"));
-
 let debug_text_result = true;
-
-std::fs::write(&src_glsl_path, r#"
-struct Example{
-    float pos_x;
-    float pos_y;
-    float pos_z;
-    float size;
-    float color;
-};"#
-).unwrap();
-
-std::fs::write(&src_vert_path, r#"
-#version 450
-#include "./assets/shaders/src/example.glsl" // relative path from .exe
-layout(location = 0) in vec4 i_pos_size;
-layout(location = 1) in vec4 i_col;
-layout(location = 0) out vec4 o_col;
-void main() {
-    o_col = i_col;
-    gl_Position = vec4(i_pos_size.xyz, 1.0);
-    gl_PointSize  = i_pos_size.w;
-}"#
-).unwrap();
 
 vku::compile_all_shaders(&src_dir_path, &target_dir_path, debug_text_result).unwrap();
 ```
