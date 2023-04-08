@@ -3,11 +3,11 @@ Work in progress utility crate for kickstarting vulkan development with [shaderc
 
 Center module is [Vkinit](crate::init::VkInit), created from [RawHandles](https://docs.rs/raw-window-handle/0.5.0/raw_window_handle/index.html) and [VkInitCreateInfo](crate::create_info::VkInitCreateInfo).
 
-# Warning
+## Warning
 This is mostly a personal utility crate and no guarentees are made in terms of stability until 1.0.0.
 
 ## Initialization
-```rust,no_run
+```rust
 use winit::window::WindowBuilder;
 use winit::event_loop::{EventLoop, EventLoopBuilder};
 use winit::dpi::LogicalSize;
@@ -27,7 +27,7 @@ let create_info = VkInitCreateInfo::default();
 let init = VkInit::new(Some(&display_h), Some(&window_h), Some(size), create_info).unwrap();
 ```
 ## Swapchain recreation:
-```rust,no_run
+```rust
 # use vku::*;
 # use ash::vk::*;
 # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
@@ -42,7 +42,7 @@ let in_flight = 3;
 init.recreate_swapchain(new_size, in_flight).unwrap();
 ```
  ## VMA Image allocation and layout transition:
-```rust,no_run
+```rust
 # use vku::*;
 # use ash::vk::*;
 # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
@@ -82,7 +82,7 @@ init.end_and_submit_cmd_buffer(
     &setup_fence, &[], &[], &[]).unwrap(); // Wait on setup fence, wait/signal no semaphores
 ```
 ## Shader compilation with #include directives:
-```rust,no_run
+```rust
 # use std::path::Path;
 # use vku::VkInit;
 let src_dir_path = Path::new("./assets/shaders/src/");
