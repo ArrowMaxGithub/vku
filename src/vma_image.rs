@@ -23,7 +23,7 @@ impl VMAImage {
         aspect_flags: ImageAspectFlags,
         allocation_create_info: &AllocationCreateInfo,
         staging_buffer: VMABuffer,
-    ) -> Result<Self> {
+    ) -> Result<Self, Error> {
         let (image, allocation, allocation_info) =
             unsafe { vk_mem_alloc::create_image(*allocator, image_info, allocation_create_info) }?;
 
@@ -63,7 +63,7 @@ impl VMAImage {
     }
 
     #[profile]
-    pub fn destroy(&self, vk_init: &VkInit) -> Result<()> {
+    pub fn destroy(&self, vk_init: &VkInit) -> Result<(), Error> {
         unsafe {
             vk_mem_alloc::destroy_image(*vk_init.as_ref(), self.image, self.allocation);
             vk_init.device.destroy_image_view(self.image_view, None);
@@ -73,7 +73,7 @@ impl VMAImage {
     }
 
     #[profile]
-    pub fn set_debug_object_name(&self, vk_init: &VkInit, base_name: String) -> Result<()> {
+    pub fn set_debug_object_name(&self, vk_init: &VkInit, base_name: String) -> Result<(), Error> {
         vk_init.set_debug_object_name(
             self.image.as_raw(),
             ObjectType::IMAGE,
@@ -105,7 +105,7 @@ impl VMAImage {
     /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
     /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
+    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), create_info).unwrap();
     ///
     /// let extent = Extent3D{width: 100, height: 100, depth: 1};
     /// let format = Format::R8G8B8A8_UNORM;
@@ -119,7 +119,7 @@ impl VMAImage {
         extent: Extent3D,
         format: Format,
         aspect_mask: ImageAspectFlags,
-    ) -> Result<VMAImage> {
+    ) -> Result<VMAImage, Error> {
         let image_info = ImageCreateInfo {
             image_type: ImageType::TYPE_2D,
             format,
@@ -169,7 +169,7 @@ impl VMAImage {
     /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
     /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// # let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
+    /// # let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), create_info).unwrap();
     /// let extent = Extent3D{width: 100, height: 100, depth: 1};
     /// let format = Format::R8G8B8A8_UNORM;
     /// let aspect_flags = ImageAspectFlags::COLOR;
@@ -178,7 +178,7 @@ impl VMAImage {
     ///
     /// image.set_staging_data(&data).unwrap();
     #[profile]
-    pub fn set_staging_data<T>(&self, data: &[T]) -> Result<()>
+    pub fn set_staging_data<T>(&self, data: &[T]) -> Result<(), Error>
     where
         T: Sized + Copy + Clone,
     {
@@ -200,7 +200,7 @@ impl VMAImage {
     /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
     /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// # let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
+    /// # let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), create_info).unwrap();
     /// # let setup_cmd_buffer_pool =
     /// #     init.create_cmd_pool(CmdType::Any).unwrap();
     /// # let setup_cmd_buffer =
@@ -286,7 +286,7 @@ impl VMAImage {
         dst_layout: ImageLayout,
         src_queue: Option<u32>,
         dst_queue: Option<u32>,
-    ) -> Result<ImageMemoryBarrier2> {
+    ) -> Result<ImageMemoryBarrier2, Error> {
         let barrier = image_layout_transitions::get_image_layout_transition_barrier2(
             &self.image,
             self.current_layout,
@@ -309,7 +309,7 @@ impl VkInit {
         extent: Extent3D,
         format: Format,
         aspect_mask: ImageAspectFlags,
-    ) -> Result<VMAImage> {
+    ) -> Result<VMAImage, Error> {
         VMAImage::create_empty_image(&self.device, &self.allocator, extent, format, aspect_mask)
     }
 }

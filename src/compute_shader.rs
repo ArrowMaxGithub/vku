@@ -1,7 +1,7 @@
 use super::vma_buffer::VMABuffer;
-use crate::imports::Result;
 use crate::{imports::*, VkInit};
 
+/// A single stage compute shader.
 pub struct ComputeShader {
     pipeline: Pipeline,
     layout: PipelineLayout,
@@ -12,6 +12,9 @@ pub struct ComputeShader {
 }
 
 impl VkInit {
+    /// Only SSBOs are supported as bindings.
+    ///
+    /// Group sizes are read in as specialization constants: layout(local_size_x_id = 0, local_size_y_id = 1, local_size_z_id = 2) in;
     #[profile]
     pub fn create_compute_shader<Push>(
         &self,
@@ -20,7 +23,7 @@ impl VkInit {
         group_sizes: [u32; 3],
         additional_spec_consts: &[u32],
         base_debug_name: String,
-    ) -> Result<ComputeShader> {
+    ) -> Result<ComputeShader, Error> {
         let module_info = ShaderModuleCreateInfo::builder().code(&code);
         let module = unsafe { self.device.create_shader_module(&module_info, None) }?;
         self.set_debug_object_name(
@@ -195,7 +198,7 @@ impl VkInit {
 
 impl ComputeShader {
     #[profile]
-    pub fn destroy(&self, vk_init: &crate::VkInit) -> Result<()> {
+    pub fn destroy(&self, vk_init: &crate::VkInit) -> Result<(), Error> {
         unsafe {
             vk_init.device.destroy_pipeline_layout(self.layout, None);
             vk_init.device.destroy_pipeline(self.pipeline, None);

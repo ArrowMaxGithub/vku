@@ -1,0 +1,217 @@
+; SPIR-V
+; Version: 1.0
+; Generator: Google Shaderc over Glslang; 10
+; Bound: 103
+; Schema: 0
+               OpCapability Shader
+          %2 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Vertex %main "main" %o_uv %i_uv %o_col %i_col %_ %i_pos
+          %1 = OpString "egui.vert"
+               OpSource GLSL 450 %1 "// OpModuleProcessed entry-point main
+// OpModuleProcessed client vulkan100
+// OpModuleProcessed target-env vulkan1.0
+// OpModuleProcessed entry-point main
+#line 1
+#version 450
+layout(push_constant)uniform Push {
+    mat4 matrix;
+    vec4 data0;
+    vec4 data1;
+    vec4 data2;
+    vec4 data3;
+} push;
+
+layout(location = 0)in vec2 i_pos;
+layout(location = 1)in vec2 i_uv;
+layout(location = 2)in vec4 i_col;
+
+layout(location = 0)out vec4 o_col;
+layout(location = 1)out vec2 o_uv;
+
+vec3 linear_from_srgb(vec3 srgb){
+    bvec3 cutoff = lessThan(srgb, vec3(10.31475));
+    vec3 lower = srgb / vec3(3294.6);
+    vec3 higher = pow((srgb + vec3(14.025))/ vec3(269.025), vec3(2.4));
+    return mix(higher, lower, cutoff);
+}
+
+vec4 linear_from_srgba(vec4 srgba){
+    return vec4(linear_from_srgb(srgba . rgb * 255.0), srgba . a);
+}
+
+void main(){
+    o_uv = i_uv;
+    o_col = linear_from_srgba(i_col);
+    gl_Position = push . matrix * vec4(i_pos . xy, 0.0, 1.0);
+}
+"
+               OpSourceExtension "GL_GOOGLE_cpp_style_line_directive"
+               OpSourceExtension "GL_GOOGLE_include_directive"
+               OpName %main "main"
+               OpName %linear_from_srgb_vf3_ "linear_from_srgb(vf3;"
+               OpName %srgb "srgb"
+               OpName %linear_from_srgba_vf4_ "linear_from_srgba(vf4;"
+               OpName %srgba "srgba"
+               OpName %cutoff "cutoff"
+               OpName %lower "lower"
+               OpName %higher "higher"
+               OpName %param "param"
+               OpName %o_uv "o_uv"
+               OpName %i_uv "i_uv"
+               OpName %o_col "o_col"
+               OpName %i_col "i_col"
+               OpName %param_0 "param"
+               OpName %gl_PerVertex "gl_PerVertex"
+               OpMemberName %gl_PerVertex 0 "gl_Position"
+               OpMemberName %gl_PerVertex 1 "gl_PointSize"
+               OpMemberName %gl_PerVertex 2 "gl_ClipDistance"
+               OpMemberName %gl_PerVertex 3 "gl_CullDistance"
+               OpName %_ ""
+               OpName %Push "Push"
+               OpMemberName %Push 0 "matrix"
+               OpMemberName %Push 1 "data0"
+               OpMemberName %Push 2 "data1"
+               OpMemberName %Push 3 "data2"
+               OpMemberName %Push 4 "data3"
+               OpName %push "push"
+               OpName %i_pos "i_pos"
+               OpDecorate %o_uv Location 1
+               OpDecorate %i_uv Location 1
+               OpDecorate %o_col Location 0
+               OpDecorate %i_col Location 2
+               OpMemberDecorate %gl_PerVertex 0 BuiltIn Position
+               OpMemberDecorate %gl_PerVertex 1 BuiltIn PointSize
+               OpMemberDecorate %gl_PerVertex 2 BuiltIn ClipDistance
+               OpMemberDecorate %gl_PerVertex 3 BuiltIn CullDistance
+               OpDecorate %gl_PerVertex Block
+               OpMemberDecorate %Push 0 ColMajor
+               OpMemberDecorate %Push 0 Offset 0
+               OpMemberDecorate %Push 0 MatrixStride 16
+               OpMemberDecorate %Push 1 Offset 64
+               OpMemberDecorate %Push 2 Offset 80
+               OpMemberDecorate %Push 3 Offset 96
+               OpMemberDecorate %Push 4 Offset 112
+               OpDecorate %Push Block
+               OpDecorate %i_pos Location 0
+       %void = OpTypeVoid
+          %4 = OpTypeFunction %void
+      %float = OpTypeFloat 32
+    %v3float = OpTypeVector %float 3
+%_ptr_Function_v3float = OpTypePointer Function %v3float
+         %10 = OpTypeFunction %v3float %_ptr_Function_v3float
+    %v4float = OpTypeVector %float 4
+%_ptr_Function_v4float = OpTypePointer Function %v4float
+         %16 = OpTypeFunction %v4float %_ptr_Function_v4float
+       %bool = OpTypeBool
+     %v3bool = OpTypeVector %bool 3
+%_ptr_Function_v3bool = OpTypePointer Function %v3bool
+%float_10_3147497 = OpConstant %float 10.3147497
+         %26 = OpConstantComposite %v3float %float_10_3147497 %float_10_3147497 %float_10_3147497
+%float_3294_6001 = OpConstant %float 3294.6001
+         %31 = OpConstantComposite %v3float %float_3294_6001 %float_3294_6001 %float_3294_6001
+%float_14_0249996 = OpConstant %float 14.0249996
+         %36 = OpConstantComposite %v3float %float_14_0249996 %float_14_0249996 %float_14_0249996
+%float_269_024994 = OpConstant %float 269.024994
+         %39 = OpConstantComposite %v3float %float_269_024994 %float_269_024994 %float_269_024994
+%float_2_4000001 = OpConstant %float 2.4000001
+         %42 = OpConstantComposite %v3float %float_2_4000001 %float_2_4000001 %float_2_4000001
+  %float_255 = OpConstant %float 255
+       %uint = OpTypeInt 32 0
+     %uint_3 = OpConstant %uint 3
+%_ptr_Function_float = OpTypePointer Function %float
+    %v2float = OpTypeVector %float 2
+%_ptr_Output_v2float = OpTypePointer Output %v2float
+       %o_uv = OpVariable %_ptr_Output_v2float Output
+%_ptr_Input_v2float = OpTypePointer Input %v2float
+       %i_uv = OpVariable %_ptr_Input_v2float Input
+%_ptr_Output_v4float = OpTypePointer Output %v4float
+      %o_col = OpVariable %_ptr_Output_v4float Output
+%_ptr_Input_v4float = OpTypePointer Input %v4float
+      %i_col = OpVariable %_ptr_Input_v4float Input
+     %uint_1 = OpConstant %uint 1
+%_arr_float_uint_1 = OpTypeArray %float %uint_1
+%gl_PerVertex = OpTypeStruct %v4float %float %_arr_float_uint_1 %_arr_float_uint_1
+%_ptr_Output_gl_PerVertex = OpTypePointer Output %gl_PerVertex
+          %_ = OpVariable %_ptr_Output_gl_PerVertex Output
+        %int = OpTypeInt 32 1
+      %int_0 = OpConstant %int 0
+%mat4v4float = OpTypeMatrix %v4float 4
+       %Push = OpTypeStruct %mat4v4float %v4float %v4float %v4float %v4float
+%_ptr_PushConstant_Push = OpTypePointer PushConstant %Push
+       %push = OpVariable %_ptr_PushConstant_Push PushConstant
+%_ptr_PushConstant_mat4v4float = OpTypePointer PushConstant %mat4v4float
+      %i_pos = OpVariable %_ptr_Input_v2float Input
+    %float_0 = OpConstant %float 0
+    %float_1 = OpConstant %float 1
+               OpLine %1 28 11
+       %main = OpFunction %void None %4
+          %6 = OpLabel
+    %param_0 = OpVariable %_ptr_Function_v4float Function
+               OpLine %1 29 0
+         %72 = OpLoad %v2float %i_uv
+               OpStore %o_uv %72
+               OpLine %1 30 0
+         %78 = OpLoad %v4float %i_col
+               OpStore %param_0 %78
+         %79 = OpFunctionCall %v4float %linear_from_srgba_vf4_ %param_0
+               OpStore %o_col %79
+               OpLine %1 31 0
+         %92 = OpAccessChain %_ptr_PushConstant_mat4v4float %push %int_0
+         %93 = OpLoad %mat4v4float %92
+         %95 = OpLoad %v2float %i_pos
+         %98 = OpCompositeExtract %float %95 0
+         %99 = OpCompositeExtract %float %95 1
+        %100 = OpCompositeConstruct %v4float %98 %99 %float_0 %float_1
+        %101 = OpMatrixTimesVector %v4float %93 %100
+        %102 = OpAccessChain %_ptr_Output_v4float %_ %int_0
+               OpStore %102 %101
+               OpReturn
+               OpFunctionEnd
+               OpLine %1 17 32
+%linear_from_srgb_vf3_ = OpFunction %v3float None %10
+       %srgb = OpFunctionParameter %_ptr_Function_v3float
+         %13 = OpLabel
+     %cutoff = OpVariable %_ptr_Function_v3bool Function
+      %lower = OpVariable %_ptr_Function_v3float Function
+     %higher = OpVariable %_ptr_Function_v3float Function
+               OpLine %1 18 0
+         %24 = OpLoad %v3float %srgb
+         %27 = OpFOrdLessThan %v3bool %24 %26
+               OpStore %cutoff %27
+               OpLine %1 19 0
+         %29 = OpLoad %v3float %srgb
+         %32 = OpFDiv %v3float %29 %31
+               OpStore %lower %32
+               OpLine %1 20 0
+         %34 = OpLoad %v3float %srgb
+         %37 = OpFAdd %v3float %34 %36
+         %40 = OpFDiv %v3float %37 %39
+         %43 = OpExtInst %v3float %2 Pow %40 %42
+               OpStore %higher %43
+               OpLine %1 21 0
+         %44 = OpLoad %v3float %higher
+         %45 = OpLoad %v3float %lower
+         %46 = OpLoad %v3bool %cutoff
+         %47 = OpSelect %v3float %46 %45 %44
+               OpReturnValue %47
+               OpFunctionEnd
+               OpLine %1 24 34
+%linear_from_srgba_vf4_ = OpFunction %v4float None %16
+      %srgba = OpFunctionParameter %_ptr_Function_v4float
+         %19 = OpLabel
+      %param = OpVariable %_ptr_Function_v3float Function
+               OpLine %1 25 0
+         %50 = OpLoad %v4float %srgba
+         %51 = OpVectorShuffle %v3float %50 %50 0 1 2
+         %53 = OpVectorTimesScalar %v3float %51 %float_255
+               OpStore %param %53
+         %55 = OpFunctionCall %v3float %linear_from_srgb_vf3_ %param
+         %59 = OpAccessChain %_ptr_Function_float %srgba %uint_3
+         %60 = OpLoad %float %59
+         %61 = OpCompositeExtract %float %55 0
+         %62 = OpCompositeExtract %float %55 1
+         %63 = OpCompositeExtract %float %55 2
+         %64 = OpCompositeConstruct %v4float %61 %62 %63 %60
+               OpReturnValue %64
+               OpFunctionEnd

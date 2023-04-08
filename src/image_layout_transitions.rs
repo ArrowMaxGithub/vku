@@ -1,4 +1,4 @@
-use crate::{errors::ImageLayoutTransitionError, imports::*};
+use crate::imports::*;
 
 #[profile]
 pub fn get_image_layout_transition_barrier2(
@@ -8,7 +8,7 @@ pub fn get_image_layout_transition_barrier2(
     aspect_flags: ImageAspectFlags,
     src_queue: Option<u32>,
     dst_queue: Option<u32>,
-) -> Result<ImageMemoryBarrier2> {
+) -> Result<ImageMemoryBarrier2, Error> {
     let (src_access, dst_access, src_stage, dst_stage) = match (src_layout, dst_layout) {
         (ImageLayout::UNDEFINED, ImageLayout::TRANSFER_DST_OPTIMAL) => (
             AccessFlags2::empty(),
@@ -75,9 +75,7 @@ pub fn get_image_layout_transition_barrier2(
 
         (_, _) => {
             trace!("Tried to transition from {src_layout:?} to {dst_layout:?}");
-            return Err(anyhow!(
-                ImageLayoutTransitionError::UnsupportedImageLayoutTransition
-            ));
+            return Err(Error::UnsupportedImageLayoutTransition);
         }
     };
 

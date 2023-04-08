@@ -14,7 +14,7 @@ impl VMABuffer {
         allocator: &Allocator,
         buffer_info: &BufferCreateInfo,
         allocation_create_info: &AllocationCreateInfo,
-    ) -> Result<Self> {
+    ) -> Result<Self, Error> {
         let (buffer, allocation, allocation_info) = unsafe {
             vk_mem_alloc::create_buffer(*allocator, buffer_info, allocation_create_info)?
         };
@@ -32,7 +32,7 @@ impl VMABuffer {
     }
 
     #[profile]
-    pub fn destroy(&self, vk_init: &VkInit) -> Result<()> {
+    pub fn destroy(&self, vk_init: &VkInit) -> Result<(), Error> {
         unsafe {
             vk_mem_alloc::destroy_buffer(*vk_init.as_ref(), self.buffer, self.allocation);
         }
@@ -40,7 +40,7 @@ impl VMABuffer {
     }
 
     #[profile]
-    pub fn set_debug_object_name(&self, vk_init: &VkInit, base_name: String) -> Result<()> {
+    pub fn set_debug_object_name(&self, vk_init: &VkInit, base_name: String) -> Result<(), Error> {
         vk_init.set_debug_object_name(
             self.buffer.as_raw(),
             ObjectType::BUFFER,
@@ -67,7 +67,7 @@ impl VMABuffer {
     /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
     /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
+    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), create_info).unwrap();
     /// let size = 1024_usize;
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     ///
@@ -78,7 +78,7 @@ impl VMABuffer {
         allocator: &Allocator,
         size: usize,
         usage: BufferUsageFlags,
-    ) -> Result<VMABuffer> {
+    ) -> Result<VMABuffer, Error> {
         let buffer_info = BufferCreateInfo::builder()
             .size(size as u64)
             .sharing_mode(SharingMode::EXCLUSIVE)
@@ -106,7 +106,7 @@ impl VMABuffer {
     /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
     /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
+    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), create_info).unwrap();
     /// let size = 1024_usize;
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     ///
@@ -117,7 +117,7 @@ impl VMABuffer {
         allocator: &Allocator,
         size: usize,
         usage: BufferUsageFlags,
-    ) -> Result<VMABuffer> {
+    ) -> Result<VMABuffer, Error> {
         let buffer_info = BufferCreateInfo::builder()
             .size(size as u64)
             .sharing_mode(SharingMode::EXCLUSIVE)
@@ -138,7 +138,7 @@ impl VMABuffer {
         allocator: &Allocator,
         size: usize,
         usage: BufferUsageFlags,
-    ) -> Result<VMABuffer> {
+    ) -> Result<VMABuffer, Error> {
         let buffer_info = BufferCreateInfo::builder()
             .size(size as u64)
             .sharing_mode(SharingMode::EXCLUSIVE)
@@ -170,7 +170,7 @@ impl VMABuffer {
     /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
     /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
+    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), create_info).unwrap();
     /// let size = 1024 * size_of::<usize>();
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     /// let buffer = init.create_cpu_to_gpu_buffer(size, usage).unwrap();
@@ -179,9 +179,9 @@ impl VMABuffer {
     /// buffer.set_data(&data).unwrap();
     /// ```
     #[profile]
-    pub fn set_data<T>(&self, data: &[T]) -> Result<()> {
+    pub fn set_data<T>(&self, data: &[T]) -> Result<(), Error> {
         if !self.is_mapped {
-            return Err(anyhow!("Tried to set_data on an unmapped buffer"));
+            return Err(Error::WriteAttemptToUnmappedBuffer);
         }
 
         let ptr = self.allocation_info.mapped_data as *mut T;
@@ -221,7 +221,7 @@ impl VMABuffer {
     /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
     /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
+    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), create_info).unwrap();
     /// let size = 2 * size_of::<u32>() + 1024 * size_of::<f32>();
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     /// let buffer = init.create_cpu_to_gpu_buffer(size, usage).unwrap();
@@ -231,7 +231,15 @@ impl VMABuffer {
     /// buffer.set_data_with_start_data(&start_data, &data).unwrap();
     /// ```
     #[profile]
-    pub fn set_data_with_start_data<T, U>(&self, start_data: &[U], data: &[T]) -> Result<()> {
+    pub fn set_data_with_start_data<T, U>(
+        &self,
+        start_data: &[U],
+        data: &[T],
+    ) -> Result<(), Error> {
+        if !self.is_mapped {
+            return Err(Error::WriteAttemptToUnmappedBuffer);
+        }
+
         let ptr = self.allocation_info.mapped_data as *mut U;
         unsafe {
             ptr.copy_from_nonoverlapping(start_data.as_ptr(), start_data.len());
@@ -263,7 +271,7 @@ impl VMABuffer {
     /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
     /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
+    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), create_info).unwrap();
     /// # let cmd_buffer_pool =
     /// #    init.create_cmd_pool(CmdType::Any).unwrap();
     /// # let cmd_buffer =
@@ -296,7 +304,7 @@ impl VMABuffer {
         src_offset: Option<u64>,
         dst_offset: Option<u64>,
         size: Option<u64>,
-    ) -> Result<()> {
+    ) -> Result<(), Error> {
         let src_offset = src_offset.unwrap_or(0);
         let dst_offset = dst_offset.unwrap_or(0);
         let size = size.unwrap_or(self.allocation_info.size - src_offset);
@@ -336,7 +344,7 @@ impl VMABuffer {
     /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
     /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
+    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), create_info).unwrap();
     /// let size = 1024 * size_of::<u32>();
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     /// let buffer = init.create_cpu_to_gpu_buffer(size, usage).unwrap();
@@ -383,7 +391,11 @@ impl VMABuffer {
 impl VkInit {
     /// Shortcut - see [VMABuffer](VMABuffer::create_local_buffer) for example.
     #[profile]
-    pub fn create_local_buffer(&self, size: usize, usage: BufferUsageFlags) -> Result<VMABuffer> {
+    pub fn create_local_buffer(
+        &self,
+        size: usize,
+        usage: BufferUsageFlags,
+    ) -> Result<VMABuffer, Error> {
         VMABuffer::create_local_buffer(&self.allocator, size, usage)
     }
     /// Shortcut - see [VMABuffer](VMABuffer::create_cpu_to_gpu_buffer) for example.
@@ -392,7 +404,7 @@ impl VkInit {
         &self,
         size: usize,
         usage: BufferUsageFlags,
-    ) -> Result<VMABuffer> {
+    ) -> Result<VMABuffer, Error> {
         VMABuffer::create_cpu_to_gpu_buffer(&self.allocator, size, usage)
     }
 
@@ -401,7 +413,7 @@ impl VkInit {
         &self,
         size: usize,
         usage: BufferUsageFlags,
-    ) -> Result<VMABuffer> {
+    ) -> Result<VMABuffer, Error> {
         VMABuffer::create_readback_buffer(&self.allocator, size, usage)
     }
 
@@ -412,7 +424,7 @@ impl VkInit {
         size: usize,
         usage: BufferUsageFlags,
         count: usize,
-    ) -> Result<Vec<VMABuffer>> {
+    ) -> Result<Vec<VMABuffer>, Error> {
         let mut buffers = Vec::new();
         for _ in 0..count {
             let buffer = VMABuffer::create_local_buffer(&self.allocator, size, usage)?;
@@ -427,7 +439,7 @@ impl VkInit {
         size: usize,
         usage: BufferUsageFlags,
         count: usize,
-    ) -> Result<Vec<VMABuffer>> {
+    ) -> Result<Vec<VMABuffer>, Error> {
         let mut buffers = Vec::new();
         for _ in 0..count {
             let buffer = VMABuffer::create_cpu_to_gpu_buffer(&self.allocator, size, usage)?;

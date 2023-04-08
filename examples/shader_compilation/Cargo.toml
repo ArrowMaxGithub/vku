@@ -1,4 +1,4 @@
 [[example]]
-name = "utils-rs-examples"
+name = "shader_compilation"
 version = "0.1.0"
 edition = "2021"

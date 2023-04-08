@@ -1,0 +1,105 @@
+; SPIR-V
+; Version: 1.0
+; Generator: Google Shaderc over Glslang; 10
+; Bound: 39
+; Schema: 0
+               OpCapability Shader
+          %2 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Vertex %main "main" %o_col %i_col %_ %i_pos_size
+          %1 = OpString "example.vert"
+               OpSource GLSL 450 %1 "// OpModuleProcessed entry-point main
+// OpModuleProcessed client vulkan100
+// OpModuleProcessed target-env vulkan1.0
+// OpModuleProcessed entry-point main
+#line 1
+#version 450
+#extension GL_GOOGLE_include_directive : enable
+#line 1 \"example.vert\"
+
+#line 1 \"../../../assets/shader_compilation/original/example.glsl\"
+struct Example {
+    float pos_x;
+    float pos_y;
+    float pos_z;
+    float size;
+    float color;
+};
+#line 3 \"example.vert\"
+
+layout(location = 0)in vec4 i_pos_size;
+layout(location = 1)in vec4 i_col;
+
+layout(location = 0)out vec4 o_col;
+
+void main(){
+    o_col = i_col;
+    gl_Position = vec4(i_pos_size . xyz, 1.0);
+    gl_PointSize = i_pos_size . w;
+}
+"
+               OpSourceExtension "GL_GOOGLE_cpp_style_line_directive"
+               OpSourceExtension "GL_GOOGLE_include_directive"
+               OpName %main "main"
+               OpName %o_col "o_col"
+               OpName %i_col "i_col"
+               OpName %gl_PerVertex "gl_PerVertex"
+               OpMemberName %gl_PerVertex 0 "gl_Position"
+               OpMemberName %gl_PerVertex 1 "gl_PointSize"
+               OpMemberName %gl_PerVertex 2 "gl_ClipDistance"
+               OpMemberName %gl_PerVertex 3 "gl_CullDistance"
+               OpName %_ ""
+               OpName %i_pos_size "i_pos_size"
+               OpDecorate %o_col Location 0
+               OpDecorate %i_col Location 1
+               OpMemberDecorate %gl_PerVertex 0 BuiltIn Position
+               OpMemberDecorate %gl_PerVertex 1 BuiltIn PointSize
+               OpMemberDecorate %gl_PerVertex 2 BuiltIn ClipDistance
+               OpMemberDecorate %gl_PerVertex 3 BuiltIn CullDistance
+               OpDecorate %gl_PerVertex Block
+               OpDecorate %i_pos_size Location 0
+       %void = OpTypeVoid
+          %4 = OpTypeFunction %void
+      %float = OpTypeFloat 32
+    %v4float = OpTypeVector %float 4
+%_ptr_Output_v4float = OpTypePointer Output %v4float
+      %o_col = OpVariable %_ptr_Output_v4float Output
+%_ptr_Input_v4float = OpTypePointer Input %v4float
+      %i_col = OpVariable %_ptr_Input_v4float Input
+       %uint = OpTypeInt 32 0
+     %uint_1 = OpConstant %uint 1
+%_arr_float_uint_1 = OpTypeArray %float %uint_1
+%gl_PerVertex = OpTypeStruct %v4float %float %_arr_float_uint_1 %_arr_float_uint_1
+%_ptr_Output_gl_PerVertex = OpTypePointer Output %gl_PerVertex
+          %_ = OpVariable %_ptr_Output_gl_PerVertex Output
+        %int = OpTypeInt 32 1
+      %int_0 = OpConstant %int 0
+ %i_pos_size = OpVariable %_ptr_Input_v4float Input
+    %v3float = OpTypeVector %float 3
+    %float_1 = OpConstant %float 1
+      %int_1 = OpConstant %int 1
+     %uint_3 = OpConstant %uint 3
+%_ptr_Input_float = OpTypePointer Input %float
+%_ptr_Output_float = OpTypePointer Output %float
+               OpLine %1 9 11
+       %main = OpFunction %void None %4
+          %6 = OpLabel
+               OpLine %1 10 0
+         %13 = OpLoad %v4float %i_col
+               OpStore %o_col %13
+               OpLine %1 11 0
+         %24 = OpLoad %v4float %i_pos_size
+         %25 = OpVectorShuffle %v3float %24 %24 0 1 2
+         %27 = OpCompositeExtract %float %25 0
+         %28 = OpCompositeExtract %float %25 1
+         %29 = OpCompositeExtract %float %25 2
+         %30 = OpCompositeConstruct %v4float %27 %28 %29 %float_1
+         %31 = OpAccessChain %_ptr_Output_v4float %_ %int_0
+               OpStore %31 %30
+               OpLine %1 12 0
+         %35 = OpAccessChain %_ptr_Input_float %i_pos_size %uint_3
+         %36 = OpLoad %float %35
+         %38 = OpAccessChain %_ptr_Output_float %_ %int_1
+               OpStore %38 %36
+               OpReturn
+               OpFunctionEnd

@@ -1,6 +1,6 @@
-use anyhow::Result;
 use log::{error, info};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+use std::error::Error;
 use std::io::Write;
 use std::time::Instant;
 use winit::dpi::LogicalSize;
@@ -13,12 +13,12 @@ use vku::{VkInit, VkInitCreateInfo};
 pub fn main() {
     init_logger();
     if let Err(err) = try_main() {
-        err.chain().for_each(|cause| error!("{}", cause));
+        error!("{err}");
         std::process::exit(1);
     }
 }
 
-pub fn try_main() -> Result<()> {
+pub fn try_main() -> Result<(), Box<dyn Error>> {
     let event_loop: EventLoop<()> = EventLoopBuilder::default().build();
     let size = [800_u32, 600_u32];
     let window = WindowBuilder::new()
@@ -39,7 +39,7 @@ pub fn try_main() -> Result<()> {
         Some(&display_handle),
         Some(&window_handle),
         Some(size),
-        &create_info,
+        create_info,
     )?;
 
     let mut start_time = Instant::now();

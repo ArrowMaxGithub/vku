@@ -6,7 +6,7 @@ use crate::imports::*;
 ///
 /// [Dynamic rendering](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_dynamic_rendering.html)
 /// and [Synchronization2](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_synchronization2.html)
-/// are enabled by default due to being awesome extensions.
+/// are enabled by default.
 pub struct VkInitCreateInfo {
     pub app_name: String,
     pub engine_name: String,
@@ -30,14 +30,14 @@ pub struct VkInitCreateInfo {
 
     //Surface
     pub surface_format: Format,
-    pub frames_in_flight: u32,
+    pub request_img_count: u32,
     pub present_mode: PresentModeKHR,
     pub clear_color_value: ClearColorValue,
 }
 
 impl VkInitCreateInfo {
     /// Suitable for debug builds against Vulkan 1.3:
-    /// - validation enalbed
+    /// - validation enabled
     /// - best practices and synchronization checks enabled
     /// - log level: >= info
     /// - log messages: validation and performance
@@ -68,7 +68,7 @@ impl VkInitCreateInfo {
                 .build(),
             additional_device_extensions: vec![],
             surface_format: Format::R8G8B8A8_SRGB,
-            frames_in_flight: 3,
+            request_img_count: 3,
             present_mode: PresentModeKHR::FIFO,
             clear_color_value: ClearColorValue {
                 float32: [0.0, 0.0, 0.0, 0.0],
@@ -106,7 +106,7 @@ impl VkInitCreateInfo {
                 .build(),
             additional_device_extensions: vec![],
             surface_format: Format::R8G8B8A8_SRGB,
-            frames_in_flight: 3,
+            request_img_count: 3,
             present_mode: PresentModeKHR::FIFO,
             clear_color_value: ClearColorValue {
                 float32: [0.0, 0.0, 0.0, 0.0],
@@ -138,7 +138,7 @@ impl VkInitCreateInfo {
                 .build(),
             additional_device_extensions: vec![],
             surface_format: Format::R8G8B8A8_SRGB,
-            frames_in_flight: 3,
+            request_img_count: 3,
             present_mode: PresentModeKHR::FIFO,
             clear_color_value: ClearColorValue {
                 float32: [0.0, 0.0, 0.0, 0.0],

@@ -1,12 +1,7 @@
 use crate::create_info::VkInitCreateInfo;
-use crate::errors::VkInitError;
 use crate::imports::*;
 
-pub trait VkDestroy {
-    fn destroy(&self, vk_init: &VkInit) -> Result<()>;
-}
-
-/// Wrapper around 'static' vulkan objects (instance, device etc.) and utility functions for ease of use.
+/// Wrapper around 'static' vulkan objects (instance, device etc.), optional head (surface, swapchain etc.), and utility functions for ease of use.
 ///
 /// Handles initialization and destruction of Vulkan objects and offers utility functions for:
 /// - GLSL shader compilation with #include directive
@@ -18,9 +13,9 @@ pub struct VkInit {
     pub allocator: Allocator,
     pub entry: Entry,
     pub instance: Instance,
-    /// Only created with [VkInitCreateInfo](crate::VkInitCreateInfo).enable_validation
+    /// Only created with enabled validation
     pub debug_loader: Option<DebugUtils>,
-    /// Only created with [VkInitCreateInfo](crate::VkInitCreateInfo).enable_validation    
+    /// Only created with enabled validation   
     pub debug_messenger: Option<DebugUtilsMessengerEXT>,
     pub physical_device: PhysicalDevice,
     pub device: Device,
@@ -32,6 +27,7 @@ pub struct VkInit {
     pub compute_queue: Option<Queue>,
     pub physical_device_info: PhysicalDeviceInfo,
     pub head: Option<Head>,
+    pub create_info: VkInitCreateInfo,
 }
 
 pub struct Head {
@@ -56,12 +52,12 @@ pub struct Head {
 /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
 /// # let size = [800_u32, 600_u32];
 /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
-/// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
-/// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
+/// # let display_h = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
+/// # let window_h = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
 /// # let create_info = VkInitCreateInfo::default();
-/// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
+/// let init = VkInit::new(Some(&display_h), Some(&window_h), Some(size), create_info).unwrap();
 ///
-/// let (compute_queue, compute_family_index) = init.get_queue(CmdType::Compute);
+/// let (compute_queue, compute_queue_family_index) = init.get_queue(CmdType::Compute);
 pub enum CmdType {
     /// Graphics | Transfer | Compute
     Any,
@@ -69,9 +65,6 @@ pub enum CmdType {
     Transfer,
     Compute,
 }
-
-/// Info wrapper around [PhysicalDeviceInfo](crate::init::PhysicalDeviceInfo) and [SurfaceInfo](crate::init::SurfaceInfo).
-pub struct VkInitInfo {}
 
 /// Return info about the selected physical device and its capabilities.
 ///
@@ -104,15 +97,6 @@ pub struct SurfaceInfo {
 }
 
 impl VkInit {
-    ///```
-    /// use vku::{VkInitCreateInfo, VkInit};
-    /// let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(None, None, None, &create_info).unwrap();
-    /// ```
-    #[profile]
-    pub fn new_headless(create_info: &VkInitCreateInfo) -> Result<Self> {
-        Self::new(None, None, None, create_info)
-    }
     /// Creates a new VkInit Vulkan wrapper from raw display and window handles.
     ///
     /// All creation parameters are provided via [VkInitCreateInfo].
@@ -139,26 +123,26 @@ impl VkInit {
     /// let window_handle = window.raw_window_handle();
     /// let create_info = VkInitCreateInfo::default();
     ///
-    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), &create_info).unwrap();
+    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), create_info).unwrap();
     /// ```
     #[profile]
     pub fn new(
         display_handle: Option<&RawDisplayHandle>,
         window_handle: Option<&RawWindowHandle>,
         window_size: Option<[u32; 2]>,
-        create_info: &VkInitCreateInfo,
-    ) -> Result<Self> {
+        create_info: VkInitCreateInfo,
+    ) -> Result<Self, Error> {
         unsafe {
             let entry = ash::Entry::linked();
             let (instance, debug_loader, debug_messenger) =
-                Self::create_instance_and_debug(&entry, display_handle, create_info)?;
+                Self::create_instance_and_debug(&entry, display_handle, &create_info)?;
             let (physical_device, physical_device_info) =
-                Self::create_physical_device(&instance, create_info)?;
+                Self::create_physical_device(&instance, &create_info)?;
             let device = Self::create_device(
                 &instance,
                 &physical_device,
                 &physical_device_info,
-                create_info,
+                &create_info,
             )?;
             let allocator = Self::create_allocator(&instance, &physical_device, &device)?;
             let (unified_queue, transfer_queue, compute_queue) =
@@ -175,7 +159,7 @@ impl VkInit {
                     window_handle,
                     window_size,
                     &physical_device,
-                    create_info,
+                    &create_info,
                 )?)
             } else {
                 None
@@ -276,12 +260,13 @@ impl VkInit {
                 transfer_queue,
                 physical_device_info,
                 head,
+                create_info,
             })
         }
     }
 
     #[profile]
-    pub fn destroy(&self) -> Result<()> {
+    pub fn destroy(&self) -> Result<(), Error> {
         unsafe {
             self.device.device_wait_idle()?;
             if let Some(head) = &self.head {
@@ -303,14 +288,17 @@ impl VkInit {
         Ok(())
     }
 
+    pub fn head(&self) -> &Head {
+        self.head.as_ref().expect("called head() on headless vku")
+    }
+
     #[profile]
     pub fn set_debug_object_name(
         &self,
         obj_handle: u64,
         obj_type: ObjectType,
         name: String,
-    ) -> Result<()> {
-        // return Ok(());
+    ) -> Result<(), Error> {
         if let Some(dbg) = &self.debug_loader {
             let c_name = CString::new(name)?;
 
@@ -326,7 +314,7 @@ impl VkInit {
     }
 
     #[profile]
-    pub fn insert_debug_label(&self, cmd_buffer: &CommandBuffer, name: &str) -> Result<()> {
+    pub fn insert_debug_label(&self, cmd_buffer: &CommandBuffer, name: &str) -> Result<(), Error> {
         if let Some(dbg) = &self.debug_loader {
             let label_info = DebugUtilsLabelEXT::builder()
                 .label_name(unsafe { CStr::from_ptr(name.as_ptr() as *const i8) })
@@ -338,7 +326,7 @@ impl VkInit {
     }
 
     #[profile]
-    pub fn begin_debug_label(&self, cmd_buffer: &CommandBuffer, name: &str) -> Result<()> {
+    pub fn begin_debug_label(&self, cmd_buffer: &CommandBuffer, name: &str) -> Result<(), Error> {
         if let Some(dbg) = &self.debug_loader {
             let label_info = DebugUtilsLabelEXT::builder()
                 .label_name(unsafe { CStr::from_ptr(name.as_ptr() as *const i8) })
@@ -350,7 +338,7 @@ impl VkInit {
     }
 
     #[profile]
-    pub fn end_debug_label(&self, cmd_buffer: &CommandBuffer) -> Result<()> {
+    pub fn end_debug_label(&self, cmd_buffer: &CommandBuffer) -> Result<(), Error> {
         if let Some(dbg) = &self.debug_loader {
             unsafe { dbg.cmd_end_debug_utils_label(*cmd_buffer) };
         }
@@ -358,7 +346,7 @@ impl VkInit {
     }
 
     #[profile]
-    pub fn create_cmd_pool(&self, cmd_type: CmdType) -> Result<CommandPool> {
+    pub fn create_cmd_pool(&self, cmd_type: CmdType) -> Result<CommandPool, Error> {
         let (_, queue_family_index) = self.get_queue(cmd_type);
         let create_info = CommandPoolCreateInfo::builder()
             .queue_family_index(queue_family_index)
@@ -373,7 +361,7 @@ impl VkInit {
         &self,
         pool: &CommandPool,
         count: u32,
-    ) -> Result<Vec<CommandBuffer>> {
+    ) -> Result<Vec<CommandBuffer>, Error> {
         let create_info = CommandBufferAllocateInfo::builder()
             .command_pool(*pool)
             .level(CommandBufferLevel::PRIMARY)
@@ -385,7 +373,7 @@ impl VkInit {
 
     /// Creates a signaled fence.
     #[profile]
-    pub fn create_fence(&self) -> Result<Fence> {
+    pub fn create_fence(&self) -> Result<Fence, Error> {
         let create_info = FenceCreateInfo::builder().flags(FenceCreateFlags::SIGNALED);
         let fence = unsafe { self.device.create_fence(&create_info, None)? };
 
@@ -394,7 +382,7 @@ impl VkInit {
 
     /// Creates a Vec of signaled fence.
     #[profile]
-    pub fn create_fences(&self, count: usize) -> Result<Vec<Fence>> {
+    pub fn create_fences(&self, count: usize) -> Result<Vec<Fence>, Error> {
         let mut fences = Vec::new();
         for _ in 0..count {
             let create_info = FenceCreateInfo::builder().flags(FenceCreateFlags::SIGNALED);
@@ -406,7 +394,7 @@ impl VkInit {
     }
 
     #[profile]
-    pub fn destroy_fence(&self, fence: &Fence) -> Result<()> {
+    pub fn destroy_fence(&self, fence: &Fence) -> Result<(), Error> {
         unsafe {
             self.device.destroy_fence(*fence, None);
         }
@@ -415,7 +403,7 @@ impl VkInit {
     }
 
     #[profile]
-    pub fn create_semaphore(&self) -> Result<Semaphore> {
+    pub fn create_semaphore(&self) -> Result<Semaphore, Error> {
         let create_info = SemaphoreCreateInfo::default();
         let semaphore = unsafe { self.device.create_semaphore(&create_info, None)? };
 
@@ -423,7 +411,7 @@ impl VkInit {
     }
 
     #[profile]
-    pub fn create_semaphores(&self, count: usize) -> Result<Vec<Semaphore>> {
+    pub fn create_semaphores(&self, count: usize) -> Result<Vec<Semaphore>, Error> {
         let mut semaphores = Vec::new();
         for _ in 0..count {
             let create_info = SemaphoreCreateInfo::default();
@@ -435,7 +423,7 @@ impl VkInit {
     }
 
     #[profile]
-    pub fn destroy_semaphore(&self, semaphore: &Semaphore) -> Result<()> {
+    pub fn destroy_semaphore(&self, semaphore: &Semaphore) -> Result<(), Error> {
         unsafe {
             self.device.destroy_semaphore(*semaphore, None);
         }
@@ -444,7 +432,7 @@ impl VkInit {
     }
 
     #[profile]
-    pub fn destroy_cmd_pool(&self, pool: &CommandPool) -> Result<()> {
+    pub fn destroy_cmd_pool(&self, pool: &CommandPool) -> Result<(), Error> {
         unsafe {
             self.device.destroy_command_pool(*pool, None);
         }
@@ -452,12 +440,12 @@ impl VkInit {
         Ok(())
     }
 
-    /// Acquires image for frame ```frame``` and signals sempahore ```acquire_img_semaphore```.
+    /// Acquires next image and signals sempahore ```acquire_img_semaphore```.
     #[profile]
     pub fn acquire_next_swapchain_image(
         &self,
         acquire_img_semaphore: Semaphore,
-    ) -> Result<(usize, Image, ImageView, bool)> {
+    ) -> Result<(usize, Image, ImageView, bool), Error> {
         let head = self.head.as_ref().unwrap();
         let (index, sub_optimal) = unsafe {
             head.swapchain_loader.acquire_next_image(
@@ -469,11 +457,16 @@ impl VkInit {
         };
         let swapchain_image = head.swapchain_images[index as usize];
         let swapchain_image_view = head.swapchain_image_views[index as usize];
-        Ok((index as usize, swapchain_image, swapchain_image_view, sub_optimal))
+        Ok((
+            index as usize,
+            swapchain_image,
+            swapchain_image_view,
+            sub_optimal,
+        ))
     }
 
     #[profile]
-    pub fn begin_cmd_buffer(&self, cmd_buffer: &CommandBuffer) -> Result<()> {
+    pub fn begin_cmd_buffer(&self, cmd_buffer: &CommandBuffer) -> Result<(), Error> {
         let cmd_buffer_begin_info =
             CommandBufferBeginInfo::builder().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
 
@@ -531,7 +524,7 @@ impl VkInit {
         wait_sem: &[Semaphore],
         signal_sem: &[Semaphore],
         wait_dst_flags: &[PipelineStageFlags],
-    ) -> Result<()> {
+    ) -> Result<(), Error> {
         unsafe { self.device.end_command_buffer(*cmd_buffer)? };
 
         let cmd_buffers = [*cmd_buffer];
@@ -563,7 +556,7 @@ impl VkInit {
         &self,
         fence: Option<&Fence>,
         cmd_buffers: &[&CommandBuffer],
-    ) -> Result<()> {
+    ) -> Result<(), Error> {
         unsafe {
             if let Some(fence) = fence {
                 self.device.wait_for_fences(&[*fence], true, u64::MAX)?;
@@ -599,7 +592,11 @@ impl VkInit {
     }
 
     #[profile]
-    pub fn present(&self, rendering_complete_semaphore: &Semaphore, frame: usize) -> Result<()> {
+    pub fn present(
+        &self,
+        rendering_complete_semaphore: &Semaphore,
+        frame: usize,
+    ) -> Result<(), Error> {
         let head = self.head.as_ref().unwrap();
         let swapchains = [head.swapchain];
         let image_indices = [frame as u32];
@@ -619,7 +616,7 @@ impl VkInit {
     }
 
     #[profile]
-    pub fn wait_device_idle(&self) -> Result<()> {
+    pub fn wait_device_idle(&self) -> Result<(), Error> {
         unsafe {
             self.device.device_wait_idle()?;
         }
@@ -693,7 +690,7 @@ impl VkInit {
         obj_handle: u64,
         obj_type: ObjectType,
         name: String,
-    ) -> Result<()> {
+    ) -> Result<(), Error> {
         let c_name = CString::new(name)?;
         let name_info = DebugUtilsObjectNameInfoEXT::builder()
             .object_name(&c_name)
@@ -710,7 +707,7 @@ impl VkInit {
         entry: &Entry,
         display_handle: Option<&RawDisplayHandle>,
         create_info: &VkInitCreateInfo,
-    ) -> Result<(Instance, Option<DebugUtils>, Option<DebugUtilsMessengerEXT>)> {
+    ) -> Result<(Instance, Option<DebugUtils>, Option<DebugUtilsMessengerEXT>), Error> {
         let app_info = ApplicationInfo::builder()
             .application_name(CStr::from_ptr(create_info.app_name.as_ptr() as *const i8))
             .engine_name(CStr::from_ptr(create_info.engine_name.as_ptr() as *const i8))
@@ -813,7 +810,7 @@ impl VkInit {
     pub(crate) unsafe fn create_physical_device(
         instance: &Instance,
         create_info: &VkInitCreateInfo,
-    ) -> Result<(PhysicalDevice, PhysicalDeviceInfo)> {
+    ) -> Result<(PhysicalDevice, PhysicalDeviceInfo), Error> {
         let all_pdevices = instance.enumerate_physical_devices()?;
         for physical_device in all_pdevices {
             let pdevice_queue_props =
@@ -914,7 +911,7 @@ impl VkInit {
                 return Ok((physical_device, physical_device_info));
             }
         }
-        Err(anyhow!(VkInitError::NoSuitableGPUFound))
+        Err(Error::NoSuitableGPUFound)
     }
 
     #[profile]
@@ -923,7 +920,7 @@ impl VkInit {
         physical_device: &PhysicalDevice,
         physical_device_info: &PhysicalDeviceInfo,
         create_info: &VkInitCreateInfo,
-    ) -> Result<Device> {
+    ) -> Result<Device, Error> {
         let supported_extensions = instance
             .enumerate_device_extension_properties(*physical_device)
             .unwrap();
@@ -944,8 +941,9 @@ impl VkInit {
             match found {
                 Some(_) => continue,
                 None => {
-                    return Err(anyhow!(VkInitError::RequiredDeviceExtensionNotSupported)
-                        .context(ext_name.to_str().unwrap()))
+                    return Err(Error::RequiredDeviceExtensionNotSupported(
+                        ext_name.to_str().unwrap().to_string(),
+                    ))
                 }
             }
         }
@@ -1000,7 +998,7 @@ impl VkInit {
         instance: &Instance,
         physical_device: &PhysicalDevice,
         device: &Device,
-    ) -> Result<Allocator> {
+    ) -> Result<Allocator, Error> {
         let allocator = vk_mem_alloc::create_allocator(instance, *physical_device, device, None)?;
         Ok(allocator)
     }
@@ -1009,7 +1007,7 @@ impl VkInit {
     pub(crate) unsafe fn create_queues(
         device: &Device,
         physical_device_info: &PhysicalDeviceInfo,
-    ) -> Result<(Queue, Option<Queue>, Option<Queue>)> {
+    ) -> Result<(Queue, Option<Queue>, Option<Queue>), Error> {
         let unified_queue =
             device.get_device_queue(physical_device_info.unified_queue_family_index, 0);
         let transfer_queue = physical_device_info
@@ -1031,7 +1029,7 @@ impl VkInit {
         window_size: [u32; 2],
         physical_device: &PhysicalDevice,
         create_info: &VkInitCreateInfo,
-    ) -> Result<(Surface, SurfaceKHR, SurfaceInfo)> {
+    ) -> Result<(Surface, SurfaceKHR, SurfaceInfo), Error> {
         let loader = Surface::new(entry, instance);
         let surface =
             ash_window::create_surface(entry, instance, *display_handle, *window_handle, None)?;
@@ -1040,7 +1038,7 @@ impl VkInit {
         let format = *formats
             .iter()
             .find(|format| format.format == create_info.surface_format)
-            .ok_or(VkInitError::RequestedSurfaceFormatNotSupported)?;
+            .ok_or(Error::RequestedSurfaceFormatNotSupported)?;
 
         let present_modes =
             loader.get_physical_device_surface_present_modes(*physical_device, surface)?;
@@ -1049,21 +1047,15 @@ impl VkInit {
             .iter()
             .copied()
             .find(|&mode| mode == create_info.present_mode)
-            .ok_or(VkInitError::PresentModeNotSupported)?;
+            .ok_or(Error::PresentModeNotSupported)?;
 
         let capabilities =
             loader.get_physical_device_surface_capabilities(*physical_device, surface)?;
 
-        let max_frame = capabilities.max_image_count;
-        trace!("max supported frames in flight: {max_frame}");
-
-        let min_frame = capabilities.min_image_count;
-        trace!("min supported frames in flight: {min_frame}");
-
         if capabilities.max_image_count != 0
-            && create_info.frames_in_flight + 1 > capabilities.max_image_count
+            && create_info.request_img_count > capabilities.max_image_count
         {
-            return Err(anyhow!(VkInitError::InsufficientFramesInFlightSupported));
+            return Err(Error::InsufficientFramesInFlightSupported);
         }
 
         let pre_transform = if capabilities
@@ -1097,15 +1089,15 @@ impl VkInit {
         surface: &SurfaceKHR,
         surface_info: &SurfaceInfo,
         window_size: [u32; 2],
-        frames_in_flight: u32,
-    ) -> Result<(Swapchain, SwapchainKHR)> {
+        request_img_count: u32,
+    ) -> Result<(Swapchain, SwapchainKHR), Error> {
         let window_extent = Extent2D {
             width: window_size[0],
             height: window_size[1],
         };
         let swapchain_create_info = SwapchainCreateInfoKHR::builder()
             .surface(*surface)
-            .min_image_count(frames_in_flight + 1)
+            .min_image_count(request_img_count)
             .image_color_space(surface_info.format.color_space)
             .image_format(surface_info.format.format)
             .image_extent(window_extent)
@@ -1129,7 +1121,7 @@ impl VkInit {
         swapchain_loader: &Swapchain,
         swapchain: &SwapchainKHR,
         surface_info: &SurfaceInfo,
-    ) -> Result<(Vec<Image>, Vec<ImageView>)> {
+    ) -> Result<(Vec<Image>, Vec<ImageView>), Error> {
         let images = swapchain_loader.get_swapchain_images(*swapchain)?;
         let mut image_views = Vec::new();
         for image in &images {
@@ -1168,7 +1160,7 @@ impl VkInit {
         window_size: [u32; 2],
         physical_device: &PhysicalDevice,
         create_info: &VkInitCreateInfo,
-    ) -> Result<Head> {
+    ) -> Result<Head, Error> {
         let (surface_loader, surface, surface_info) = Self::create_surface(
             entry,
             instance,
@@ -1184,7 +1176,7 @@ impl VkInit {
             &surface,
             &surface_info,
             window_size,
-            create_info.frames_in_flight,
+            create_info.request_img_count,
         )?;
         let (swapchain_images, swapchain_image_views) =
             Self::create_swapchain_images(device, &swapchain_loader, &swapchain, &surface_info)?;
@@ -1199,6 +1191,42 @@ impl VkInit {
             clear_color_value: create_info.clear_color_value,
             surface_info,
         })
+    }
+
+    #[profile]
+    pub fn change_present_mode(
+        &mut self,
+        display_handle: &RawDisplayHandle,
+        window_handle: &RawWindowHandle,
+        window_size: [u32; 2],
+        mode: PresentModeKHR,
+    ) -> Result<(), Error> {
+        unsafe {
+            if let Some(head) = &mut self.head {
+                self.device.device_wait_idle()?;
+                for image_view in &head.swapchain_image_views {
+                    self.device.destroy_image_view(*image_view, None);
+                }
+                head.swapchain_loader
+                    .destroy_swapchain(head.swapchain, None);
+                head.surface_loader.destroy_surface(head.surface, None);
+
+                self.create_info.present_mode = mode;
+
+                self.head = Some(Self::create_head(
+                    &self.device,
+                    &self.entry,
+                    &self.instance,
+                    display_handle,
+                    window_handle,
+                    window_size,
+                    &self.physical_device,
+                    &self.create_info,
+                )?);
+            }
+        }
+
+        Ok(())
     }
 }
 

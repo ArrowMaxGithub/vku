@@ -1,5 +1,6 @@
 use crate::{imports::*, VMABuffer, VkInit};
 
+/// Creation parameters for [BaseRenderer].
 pub struct RendererCreateInfo {
     pub initial_buffer_length: usize,
     pub frames_in_flight: usize,
@@ -12,6 +13,7 @@ pub struct RendererCreateInfo {
     pub debug_name: String,
 }
 
+/// A generic single sampled renderer created from [RendererCreateInfo] and vertex, index, and push constants definitions.
 pub struct BaseRenderer {
     pub index_buffers: Vec<VMABuffer>,
     pub vertex_buffers: Vec<VMABuffer>,
@@ -22,11 +24,13 @@ pub struct BaseRenderer {
     pub sampler: Sampler,
 }
 
+/// Trait for client code to convert vertex struct to [VertexInputBindingDescription] and [VertexInputAttributeDescription].
 pub trait VertexConvert {
     fn convert_to_vertex_input_binding_desc() -> Vec<VertexInputBindingDescription>;
     fn convert_to_vertex_input_attrib_desc() -> Vec<VertexInputAttributeDescription>;
 }
 
+/// Shortcut to generate [PipelineColorBlendAttachmentState] for common blend modes.
 #[derive(Clone, Copy)]
 pub enum BlendMode {
     Opaque,
@@ -70,7 +74,7 @@ impl VkInit {
     pub fn create_base_renderer<Index, Vertex, Push>(
         &self,
         create_info: &RendererCreateInfo,
-    ) -> Result<BaseRenderer>
+    ) -> Result<BaseRenderer, Error>
     where
         Vertex: VertexConvert,
     {
@@ -321,7 +325,7 @@ impl VkInit {
     }
 
     #[profile]
-    pub fn destroy_base_renderer(&self, renderer: &BaseRenderer) -> Result<()> {
+    pub fn destroy_base_renderer(&self, renderer: &BaseRenderer) -> Result<(), Error> {
         unsafe {
             for buffer in &renderer.index_buffers {
                 buffer.destroy(self)?;

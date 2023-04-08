@@ -1,4 +1,3 @@
-pub(crate) use anyhow::{anyhow, Result};
 pub(crate) use ash::extensions::{
     ext::DebugUtils,
     khr::{Surface, Swapchain},
@@ -17,14 +16,16 @@ pub(crate) use std::{
     io::Cursor,
     mem::size_of,
     path::Path,
-    str::Utf8Error,
+    result::Result,
 };
 pub(crate) use vk_mem_alloc::{
     Allocation, AllocationCreateFlags, AllocationCreateInfo, AllocationInfo, Allocator, MemoryUsage,
 };
-pub(crate) fn char_array_to_string(chars: &[i8; 256]) -> Result<String, Utf8Error> {
+pub(crate) fn char_array_to_string(chars: &[i8; 256]) -> Result<String, Error> {
     let string_raw = unsafe { CStr::from_ptr(chars.as_ptr()) };
-    let string = string_raw.to_str()?.to_owned();
-    Ok(string)
+    let string = string_raw.to_str()?;
+    Ok(string.to_string())
 }
 pub(crate) use optick_attr::profile;
+
+pub(crate) use crate::error::*;
