@@ -5,11 +5,10 @@ impl VkInit {
     ///
     /// Function waits for device_wait_idle before destroying the swapchain.
     /// Images must be transitioned to the appropriate image layout after recreation.
-    #[profile]
+
     pub fn recreate_swapchain(
         &mut self,
         size: [u32; 2],
-        frames_in_flight: u32,
     ) -> Result<(), Error> {
         unsafe {
             let mut head = self.head.as_mut().unwrap();
@@ -29,7 +28,6 @@ impl VkInit {
                 &head.surface,
                 &head.surface_info,
                 size,
-                frames_in_flight,
             )?;
             let (swapchain_images, swapchain_image_views) = Self::create_swapchain_images(
                 &self.device,

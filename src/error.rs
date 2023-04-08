@@ -30,7 +30,7 @@ pub enum Error {
     #[error("incorrect usage of the vulkan API: {0}")]
     VkError(ash::vk::Result),
 
-    #[error("incountered an unknown error: {0}")]
+    #[error("encountered an unknown error: {0}")]
     Catch(Box<dyn std::error::Error>),
 }
 

@@ -91,6 +91,7 @@ pub struct SurfaceInfo {
     pub min_extent: Extent2D,
     pub max_extent: Extent2D,
     pub current_extent: Extent2D,
+    pub image_count: u32,
     pub present_mode: PresentModeKHR,
     pub format: SurfaceFormatKHR,
     pub pre_transform: SurfaceTransformFlagsKHR,
@@ -125,7 +126,7 @@ impl VkInit {
     ///
     /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), create_info).unwrap();
     /// ```
-    #[profile]
+
     pub fn new(
         display_handle: Option<&RawDisplayHandle>,
         window_handle: Option<&RawWindowHandle>,
@@ -265,7 +266,6 @@ impl VkInit {
         }
     }
 
-    #[profile]
     pub fn destroy(&self) -> Result<(), Error> {
         unsafe {
             self.device.device_wait_idle()?;
@@ -292,7 +292,6 @@ impl VkInit {
         self.head.as_ref().expect("called head() on headless vku")
     }
 
-    #[profile]
     pub fn set_debug_object_name(
         &self,
         obj_handle: u64,
@@ -313,7 +312,6 @@ impl VkInit {
         Ok(())
     }
 
-    #[profile]
     pub fn insert_debug_label(&self, cmd_buffer: &CommandBuffer, name: &str) -> Result<(), Error> {
         if let Some(dbg) = &self.debug_loader {
             let label_info = DebugUtilsLabelEXT::builder()
@@ -325,7 +323,6 @@ impl VkInit {
         Ok(())
     }
 
-    #[profile]
     pub fn begin_debug_label(&self, cmd_buffer: &CommandBuffer, name: &str) -> Result<(), Error> {
         if let Some(dbg) = &self.debug_loader {
             let label_info = DebugUtilsLabelEXT::builder()
@@ -337,7 +334,6 @@ impl VkInit {
         Ok(())
     }
 
-    #[profile]
     pub fn end_debug_label(&self, cmd_buffer: &CommandBuffer) -> Result<(), Error> {
         if let Some(dbg) = &self.debug_loader {
             unsafe { dbg.cmd_end_debug_utils_label(*cmd_buffer) };
@@ -345,7 +341,6 @@ impl VkInit {
         Ok(())
     }
 
-    #[profile]
     pub fn create_cmd_pool(&self, cmd_type: CmdType) -> Result<CommandPool, Error> {
         let (_, queue_family_index) = self.get_queue(cmd_type);
         let create_info = CommandPoolCreateInfo::builder()
@@ -356,7 +351,6 @@ impl VkInit {
         Ok(command_pool)
     }
 
-    #[profile]
     pub fn create_command_buffers(
         &self,
         pool: &CommandPool,
@@ -372,7 +366,7 @@ impl VkInit {
     }
 
     /// Creates a signaled fence.
-    #[profile]
+
     pub fn create_fence(&self) -> Result<Fence, Error> {
         let create_info = FenceCreateInfo::builder().flags(FenceCreateFlags::SIGNALED);
         let fence = unsafe { self.device.create_fence(&create_info, None)? };
@@ -381,7 +375,7 @@ impl VkInit {
     }
 
     /// Creates a Vec of signaled fence.
-    #[profile]
+
     pub fn create_fences(&self, count: usize) -> Result<Vec<Fence>, Error> {
         let mut fences = Vec::new();
         for _ in 0..count {
@@ -393,7 +387,6 @@ impl VkInit {
         Ok(fences)
     }
 
-    #[profile]
     pub fn destroy_fence(&self, fence: &Fence) -> Result<(), Error> {
         unsafe {
             self.device.destroy_fence(*fence, None);
@@ -402,7 +395,6 @@ impl VkInit {
         Ok(())
     }
 
-    #[profile]
     pub fn create_semaphore(&self) -> Result<Semaphore, Error> {
         let create_info = SemaphoreCreateInfo::default();
         let semaphore = unsafe { self.device.create_semaphore(&create_info, None)? };
@@ -410,7 +402,6 @@ impl VkInit {
         Ok(semaphore)
     }
 
-    #[profile]
     pub fn create_semaphores(&self, count: usize) -> Result<Vec<Semaphore>, Error> {
         let mut semaphores = Vec::new();
         for _ in 0..count {
@@ -422,7 +413,6 @@ impl VkInit {
         Ok(semaphores)
     }
 
-    #[profile]
     pub fn destroy_semaphore(&self, semaphore: &Semaphore) -> Result<(), Error> {
         unsafe {
             self.device.destroy_semaphore(*semaphore, None);
@@ -431,7 +421,6 @@ impl VkInit {
         Ok(())
     }
 
-    #[profile]
     pub fn destroy_cmd_pool(&self, pool: &CommandPool) -> Result<(), Error> {
         unsafe {
             self.device.destroy_command_pool(*pool, None);
@@ -441,7 +430,7 @@ impl VkInit {
     }
 
     /// Acquires next image and signals sempahore ```acquire_img_semaphore```.
-    #[profile]
+
     pub fn acquire_next_swapchain_image(
         &self,
         acquire_img_semaphore: Semaphore,
@@ -465,7 +454,6 @@ impl VkInit {
         ))
     }
 
-    #[profile]
     pub fn begin_cmd_buffer(&self, cmd_buffer: &CommandBuffer) -> Result<(), Error> {
         let cmd_buffer_begin_info =
             CommandBufferBeginInfo::builder().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
@@ -478,7 +466,6 @@ impl VkInit {
         Ok(())
     }
 
-    #[profile]
     pub fn begin_rendering(&self, swapchain_image_view: &ImageView, cmd_buffer: &CommandBuffer) {
         let head = self.head.as_ref().unwrap();
 
@@ -508,14 +495,12 @@ impl VkInit {
         }
     }
 
-    #[profile]
     pub fn end_rendering(&self, cmd_buffer: &CommandBuffer) {
         unsafe {
             self.device.cmd_end_rendering(*cmd_buffer);
         }
     }
 
-    #[profile]
     pub fn end_and_submit_cmd_buffer(
         &self,
         cmd_buffer: &CommandBuffer,
@@ -551,7 +536,6 @@ impl VkInit {
         Ok(())
     }
 
-    #[profile]
     pub fn wait_on_fence_and_reset(
         &self,
         fence: Option<&Fence>,
@@ -572,7 +556,6 @@ impl VkInit {
         Ok(())
     }
 
-    #[profile]
     pub fn cmd_pipeline_barrier2(
         &self,
         cmd_buffer: &CommandBuffer,
@@ -591,7 +574,6 @@ impl VkInit {
         }
     }
 
-    #[profile]
     pub fn present(
         &self,
         rendering_complete_semaphore: &Semaphore,
@@ -615,7 +597,6 @@ impl VkInit {
         Ok(())
     }
 
-    #[profile]
     pub fn wait_device_idle(&self) -> Result<(), Error> {
         unsafe {
             self.device.device_wait_idle()?;
@@ -627,7 +608,7 @@ impl VkInit {
     /// Gets the queue and queue family index for the given [CmdType].
     ///
     /// If there is e.g. no dedicated compute queue, this will fallback to the guarenteed unified queue.
-    #[profile]
+
     pub fn get_queue(&self, cmd_type: CmdType) -> (Queue, u32) {
         match cmd_type {
             CmdType::Any => (
@@ -683,7 +664,6 @@ impl VkInit {
         }
     }
 
-    #[profile]
     fn set_debug_object_name_static(
         dbg: &DebugUtils,
         device: &Device,
@@ -702,7 +682,6 @@ impl VkInit {
         Ok(())
     }
 
-    #[profile]
     pub(crate) unsafe fn create_instance_and_debug(
         entry: &Entry,
         display_handle: Option<&RawDisplayHandle>,
@@ -806,7 +785,6 @@ impl VkInit {
         }
     }
 
-    #[profile]
     pub(crate) unsafe fn create_physical_device(
         instance: &Instance,
         create_info: &VkInitCreateInfo,
@@ -914,7 +892,6 @@ impl VkInit {
         Err(Error::NoSuitableGPUFound)
     }
 
-    #[profile]
     pub(crate) unsafe fn create_device(
         instance: &Instance,
         physical_device: &PhysicalDevice,
@@ -993,7 +970,6 @@ impl VkInit {
         Ok(device)
     }
 
-    #[profile]
     pub(crate) unsafe fn create_allocator(
         instance: &Instance,
         physical_device: &PhysicalDevice,
@@ -1003,7 +979,6 @@ impl VkInit {
         Ok(allocator)
     }
 
-    #[profile]
     pub(crate) unsafe fn create_queues(
         device: &Device,
         physical_device_info: &PhysicalDeviceInfo,
@@ -1020,7 +995,6 @@ impl VkInit {
         Ok((unified_queue, transfer_queue, compute_queue))
     }
 
-    #[profile]
     pub(crate) unsafe fn create_surface(
         entry: &Entry,
         instance: &Instance,
@@ -1052,8 +1026,10 @@ impl VkInit {
         let capabilities =
             loader.get_physical_device_surface_capabilities(*physical_device, surface)?;
 
+        let requested_img_count = create_info.request_img_count.max(capabilities.max_image_count);
+
         if capabilities.max_image_count != 0
-            && create_info.request_img_count > capabilities.max_image_count
+            && requested_img_count > capabilities.max_image_count
         {
             return Err(Error::InsufficientFramesInFlightSupported);
         }
@@ -1075,6 +1051,7 @@ impl VkInit {
                 height: window_size[1],
             },
             present_mode,
+            image_count: requested_img_count,
             format,
             pre_transform,
         };
@@ -1082,14 +1059,12 @@ impl VkInit {
         Ok((loader, surface, surface_info))
     }
 
-    #[profile]
     pub(crate) unsafe fn create_swapchain(
         instance: &Instance,
         device: &Device,
         surface: &SurfaceKHR,
         surface_info: &SurfaceInfo,
         window_size: [u32; 2],
-        request_img_count: u32,
     ) -> Result<(Swapchain, SwapchainKHR), Error> {
         let window_extent = Extent2D {
             width: window_size[0],
@@ -1097,7 +1072,7 @@ impl VkInit {
         };
         let swapchain_create_info = SwapchainCreateInfoKHR::builder()
             .surface(*surface)
-            .min_image_count(request_img_count)
+            .min_image_count(surface_info.image_count)
             .image_color_space(surface_info.format.color_space)
             .image_format(surface_info.format.format)
             .image_extent(window_extent)
@@ -1115,7 +1090,6 @@ impl VkInit {
         Ok((loader, swapchain))
     }
 
-    #[profile]
     pub(crate) unsafe fn create_swapchain_images(
         device: &Device,
         swapchain_loader: &Swapchain,
@@ -1150,7 +1124,6 @@ impl VkInit {
         Ok((images, image_views))
     }
 
-    #[profile]
     pub(crate) unsafe fn create_head(
         device: &Device,
         entry: &Entry,
@@ -1176,7 +1149,6 @@ impl VkInit {
             &surface,
             &surface_info,
             window_size,
-            create_info.request_img_count,
         )?;
         let (swapchain_images, swapchain_image_views) =
             Self::create_swapchain_images(device, &swapchain_loader, &swapchain, &surface_info)?;
@@ -1193,7 +1165,6 @@ impl VkInit {
         })
     }
 
-    #[profile]
     pub fn change_present_mode(
         &mut self,
         display_handle: &RawDisplayHandle,

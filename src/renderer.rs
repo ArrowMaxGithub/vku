@@ -70,7 +70,6 @@ impl From<BlendMode> for PipelineColorBlendAttachmentState {
 }
 
 impl VkInit {
-    #[profile]
     pub fn create_base_renderer<Index, Vertex, Push>(
         &self,
         create_info: &RendererCreateInfo,
@@ -324,7 +323,6 @@ impl VkInit {
         })
     }
 
-    #[profile]
     pub fn destroy_base_renderer(&self, renderer: &BaseRenderer) -> Result<(), Error> {
         unsafe {
             for buffer in &renderer.index_buffers {

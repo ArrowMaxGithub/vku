@@ -9,11 +9,7 @@ use egui_winit::State;
 use graphics::Graphics;
 use log::error;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
-use std::{
-    error::Error,
-    io::Write,
-    time::Instant,
-};
+use std::{error::Error, io::Write, time::Instant};
 use vku::{VkInit, VkInitCreateInfo};
 use winit::{
     dpi::LogicalSize,
@@ -44,6 +40,7 @@ pub fn try_main() -> Result<(), Box<dyn Error>> {
     let event_loop: EventLoop<()> = EventLoopBuilder::default().build();
     let size = [800_u32, 600_u32];
     let window = WindowBuilder::new()
+        .with_title("vku egui example")
         .with_inner_size(LogicalSize {
             width: size[0],
             height: size[1],

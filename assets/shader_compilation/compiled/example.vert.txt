@@ -81,7 +81,6 @@ void main(){
      %uint_3 = OpConstant %uint 3
 %_ptr_Input_float = OpTypePointer Input %float
 %_ptr_Output_float = OpTypePointer Output %float
-               OpLine %1 9 11
        %main = OpFunction %void None %4
           %6 = OpLabel
                OpLine %1 10 0

@@ -26,6 +26,4 @@ pub(crate) fn char_array_to_string(chars: &[i8; 256]) -> Result<String, Error> {
     let string = string_raw.to_str()?;
     Ok(string.to_string())
 }
-pub(crate) use optick_attr::profile;
-
 pub(crate) use crate::error::*;

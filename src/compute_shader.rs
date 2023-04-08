@@ -15,7 +15,7 @@ impl VkInit {
     /// Only SSBOs are supported as bindings.
     ///
     /// Group sizes are read in as specialization constants: layout(local_size_x_id = 0, local_size_y_id = 1, local_size_z_id = 2) in;
-    #[profile]
+
     pub fn create_compute_shader<Push>(
         &self,
         ssbos: &[&VMABuffer],
@@ -197,7 +197,6 @@ impl VkInit {
 }
 
 impl ComputeShader {
-    #[profile]
     pub fn destroy(&self, vk_init: &crate::VkInit) -> Result<(), Error> {
         unsafe {
             vk_init.device.destroy_pipeline_layout(self.layout, None);
@@ -210,7 +209,6 @@ impl ComputeShader {
         Ok(())
     }
 
-    #[profile]
     pub fn bind(&self, device: &ash::Device, cmd_buffer: &CommandBuffer, constants: &[u8]) {
         unsafe {
             device.cmd_bind_pipeline(*cmd_buffer, PipelineBindPoint::COMPUTE, self.pipeline);
@@ -232,7 +230,6 @@ impl ComputeShader {
         }
     }
 
-    #[profile]
     pub fn dispatch(
         &self,
         device: &ash::Device,

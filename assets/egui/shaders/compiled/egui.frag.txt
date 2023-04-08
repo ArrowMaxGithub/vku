@@ -57,7 +57,6 @@ void main(){
 %final_color = OpVariable %_ptr_Output_v4float Output
 %_ptr_Input_v4float = OpTypePointer Input %v4float
     %o_color = OpVariable %_ptr_Input_v4float Input
-               OpLine %1 10 11
        %main = OpFunction %void None %4
           %6 = OpLabel
 %texture_in_gamma = OpVariable %_ptr_Function_v4float Function

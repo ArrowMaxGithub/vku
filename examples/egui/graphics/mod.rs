@@ -263,7 +263,7 @@ impl Graphics {
     }
 
     pub(crate) fn on_resize(&mut self, new_size: [u32; 2]) -> Result<()> {
-        self.vk_init.recreate_swapchain(new_size, 1)?;
+        self.vk_init.recreate_swapchain(new_size)?;
 
         self.vk_init.begin_cmd_buffer(&self.setup_cmd_buffer)?;
 

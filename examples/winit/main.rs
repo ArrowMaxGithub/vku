@@ -22,6 +22,7 @@ pub fn try_main() -> Result<(), Box<dyn Error>> {
     let event_loop: EventLoop<()> = EventLoopBuilder::default().build();
     let size = [800_u32, 600_u32];
     let window = WindowBuilder::new()
+        .with_title("vku winit example")
         .with_inner_size(LogicalSize {
             width: size[0],
             height: size[1],

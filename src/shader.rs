@@ -15,7 +15,7 @@ use shaderc::CompilationArtifact;
 ///
 /// Only a single entry point main() is allowed.
 #[allow(unused_must_use)]
-#[profile]
+
 pub fn compile_all_shaders(
     src_dir_path: &Path,
     target_dir_path: &Path,
@@ -84,7 +84,7 @@ pub fn compile_all_shaders(
 
 /// Compile single shader module from String without writing to a file.
 #[allow(unused_must_use)]
-#[profile]
+
 pub fn shader_ad_hoc(
     shader_src: String,
     shader_name: &str,
@@ -119,7 +119,6 @@ pub fn shader_ad_hoc(
     )
 }
 
-#[profile]
 fn compile_shader_adhoc(
     shader_src: String,
     shader_name: &str,
@@ -157,7 +156,6 @@ fn compile_shader_adhoc(
     Ok(binary_result)
 }
 
-#[profile]
 fn compile_shader(
     shader_src: String,
     shader_name: &str,
@@ -206,7 +204,6 @@ fn compile_shader(
     Ok(())
 }
 
-#[profile]
 fn shader_include_callback(
     src_path: &str,
     _include_type: shaderc::IncludeType,
