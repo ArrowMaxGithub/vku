@@ -1,4 +1,5 @@
 use anyhow::Result;
+use egui::{TexturesDelta, ClippedPrimitive};
 use log::error;
 use nalgebra_glm::Mat4;
 use std::path::Path;
@@ -6,13 +7,14 @@ use vku::ash::vk::*;
 use vku::*;
 
 mod egui_renderer;
-use egui::{ClippedPrimitive, TexturesDelta};
 use egui_renderer::EguiRenderer;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use winit::window::Window;
 
 mod push_constants;
 mod vertex;
+mod color_test;
+pub use color_test::ColorTest;
 
 pub(crate) struct Graphics {
     vk_init: VkInit,
@@ -30,8 +32,8 @@ pub(crate) struct Graphics {
 impl Graphics {
     pub(crate) fn new(window: &Window) -> Result<Self> {
         vku::compile_all_shaders(
-            Path::new("../../../assets/egui/shaders/original"),
-            Path::new("../../../assets/egui/shaders/compiled"),
+            Path::new("./assets/egui/shaders/original"),
+            Path::new("./assets/egui/shaders/compiled"),
             cfg!(debug_assertions),
         )?;
 

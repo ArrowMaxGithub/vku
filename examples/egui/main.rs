@@ -6,7 +6,7 @@ use egui::{
     TextureHandle, TextureOptions, TopBottomPanel, Visuals, Window as EguiWindow,
 };
 use egui_winit::State;
-use graphics::Graphics;
+use graphics::{Graphics, ColorTest};
 use log::error;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use std::{error::Error, io::Write, time::Instant};
@@ -61,7 +61,7 @@ pub fn try_main() -> Result<(), Box<dyn Error>> {
     let ctx = Context::default();
     let mut state = State::new(&event_loop);
 
-    let read_img = image::open("../../../assets/egui/textures/ferris.png").unwrap();
+    let read_img = image::open("./assets/egui/textures/ferris.png").unwrap();
     let ferris = ctx.load_texture(
         "ferris",
         ColorImage::from_rgba_unmultiplied(
@@ -161,7 +161,8 @@ fn update(
         return Ok(());
     }
     let raw_input = state.take_egui_input(window);
-    let full_output = build_ui(ctx, raw_input, app_data);
+    // let full_output = build_ui(ctx, raw_input, app_data);
+    let full_output = color_test(ctx, raw_input);
     state.handle_platform_output(window, ctx, full_output.platform_output);
 
     let clipped_primitives = ctx.tessellate(full_output.shapes);
@@ -174,6 +175,14 @@ fn update(
 
     graphics.update(full_output.textures_delta, clipped_primitives, ui_to_ndc)?;
     Ok(())
+}
+
+fn color_test(ctx: &Context, raw_input: RawInput) -> FullOutput{
+    ctx.run(raw_input, |ui|{
+        CentralPanel::default().show(ctx, |ui|{
+            ColorTest::default().ui(ui);
+        });
+    })
 }
 
 fn build_ui(ctx: &Context, raw_input: RawInput, app_data: &mut AppData) -> FullOutput {
@@ -217,7 +226,7 @@ fn build_ui(ctx: &Context, raw_input: RawInput, app_data: &mut AppData) -> FullO
                     if enter_command.gained_focus() {
                         app_data.input_string = String::from("");
                     }
-                    if enter_command.lost_focus() && ui.input().key_pressed(Key::Enter) {
+                    if enter_command.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter)){
                         println!("Entered command: {}", app_data.input_string);
                         app_data.input_string = String::from("Enter command ...")
                     } else if enter_command.lost_focus() {

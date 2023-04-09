@@ -144,6 +144,7 @@ void main(){
       %i_pos = OpVariable %_ptr_Input_v2float Input
     %float_0 = OpConstant %float 0
     %float_1 = OpConstant %float 1
+               OpLine %1 28 11
        %main = OpFunction %void None %4
           %6 = OpLabel
     %param_0 = OpVariable %_ptr_Function_v4float Function
@@ -167,6 +168,7 @@ void main(){
                OpStore %102 %101
                OpReturn
                OpFunctionEnd
+               OpLine %1 17 32
 %linear_from_srgb_vf3_ = OpFunction %v3float None %10
        %srgb = OpFunctionParameter %_ptr_Function_v3float
          %13 = OpLabel
@@ -194,6 +196,7 @@ void main(){
          %47 = OpSelect %v3float %46 %45 %44
                OpReturnValue %47
                OpFunctionEnd
+               OpLine %1 24 34
 %linear_from_srgba_vf4_ = OpFunction %v4float None %16
       %srgba = OpFunctionParameter %_ptr_Function_v4float
          %19 = OpLabel

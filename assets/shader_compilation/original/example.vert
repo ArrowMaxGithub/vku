@@ -1,5 +1,5 @@
 #version 450
-#include "../../../assets/shader_compilation/original/example.glsl" // relative path from calling exe inside /target to assets folder
+#include "./assets/shader_compilation/original/example.glsl"
 
 layout(location = 0) in vec4 i_pos_size;
 layout(location = 1) in vec4 i_col;
