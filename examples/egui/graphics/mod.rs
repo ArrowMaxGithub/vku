@@ -1,5 +1,5 @@
 use anyhow::Result;
-use egui::{TexturesDelta, ClippedPrimitive};
+use egui::{ClippedPrimitive, TexturesDelta};
 use log::error;
 use nalgebra_glm::Mat4;
 use std::path::Path;
@@ -11,9 +11,9 @@ use egui_renderer::EguiRenderer;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use winit::window::Window;
 
+mod color_test;
 mod push_constants;
 mod vertex;
-mod color_test;
 pub use color_test::ColorTest;
 
 pub(crate) struct Graphics {
@@ -37,7 +37,7 @@ impl Graphics {
             cfg!(debug_assertions),
         )?;
 
-        let vk_init_create_info = VkInitCreateInfo::debug_vk_1_3();
+        let vk_init_create_info = VkInitCreateInfo::default();
 
         let vk_init = VkInit::new(
             Some(&window.raw_display_handle()),

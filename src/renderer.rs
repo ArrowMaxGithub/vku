@@ -119,7 +119,7 @@ impl VkInit {
 
         let descriptor_pool_info = DescriptorPoolCreateInfo::builder()
             .pool_sizes(&sampled_image_size)
-            .max_sets(1)
+            .max_sets(1024)
             .flags(DescriptorPoolCreateFlags::UPDATE_AFTER_BIND);
 
         let descriptor_pool = unsafe {

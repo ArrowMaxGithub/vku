@@ -1,19 +1,15 @@
+// Color test online reference: https://www.egui.rs/#colors
+use egui::{widgets::color_picker::show_color, TextureOptions, *};
 use std::collections::HashMap;
 
-use egui::{widgets::color_picker::show_color, TextureOptions, *};
-
 const GRADIENT_SIZE: Vec2 = vec2(256.0, 18.0);
-
 const BLACK: Color32 = Color32::BLACK;
 const GREEN: Color32 = Color32::GREEN;
 const RED: Color32 = Color32::RED;
 const TRANSPARENT: Color32 = Color32::TRANSPARENT;
 const WHITE: Color32 = Color32::WHITE;
 
-/// A test for sanity-checking and diagnosing egui rendering backends.
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct ColorTest {
-    #[cfg_attr(feature = "serde", serde(skip))]
     tex_mngr: TextureManager,
     vertex_gradients: bool,
     texture_gradients: bool,

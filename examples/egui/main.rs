@@ -6,7 +6,7 @@ use egui::{
     TextureHandle, TextureOptions, TopBottomPanel, Visuals, Window as EguiWindow,
 };
 use egui_winit::State;
-use graphics::{Graphics, ColorTest};
+use graphics::{ColorTest, Graphics};
 use log::error;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use std::{error::Error, io::Write, time::Instant};
@@ -20,12 +20,14 @@ use winit::{
 
 struct AppData {
     pub frame_timing_open: bool,
+    pub color_test_open: bool,
     pub should_close: bool,
     pub input_string: String,
     pub last_frame: Instant,
     pub frame_s: f64,
     pub start: Instant,
     pub ferris: TextureHandle,
+    pub color_test: ColorTest,
 }
 
 pub fn main() {
@@ -72,13 +74,15 @@ pub fn try_main() -> Result<(), Box<dyn Error>> {
     );
 
     let mut app_data = AppData {
-        frame_timing_open: true,
+        frame_timing_open: false,
+        color_test_open: true,
         should_close: false,
         input_string: String::new(),
         last_frame: Instant::now(),
         frame_s: 0.0,
         start: Instant::now(),
         ferris,
+        color_test: ColorTest::default(),
     };
 
     // Polled event loop that exits on [ESC] or window close
@@ -161,8 +165,7 @@ fn update(
         return Ok(());
     }
     let raw_input = state.take_egui_input(window);
-    // let full_output = build_ui(ctx, raw_input, app_data);
-    let full_output = color_test(ctx, raw_input);
+    let full_output = build_ui(ctx, raw_input, app_data);
     state.handle_platform_output(window, ctx, full_output.platform_output);
 
     let clipped_primitives = ctx.tessellate(full_output.shapes);
@@ -175,14 +178,6 @@ fn update(
 
     graphics.update(full_output.textures_delta, clipped_primitives, ui_to_ndc)?;
     Ok(())
-}
-
-fn color_test(ctx: &Context, raw_input: RawInput) -> FullOutput{
-    ctx.run(raw_input, |ui|{
-        CentralPanel::default().show(ctx, |ui|{
-            ColorTest::default().ui(ui);
-        });
-    })
 }
 
 fn build_ui(ctx: &Context, raw_input: RawInput, app_data: &mut AppData) -> FullOutput {
@@ -210,6 +205,10 @@ fn build_ui(ctx: &Context, raw_input: RawInput, app_data: &mut AppData) -> FullO
                         app_data.frame_timing_open = true;
                         ui.close_menu();
                     }
+                    if ui.button("Color test").clicked() {
+                        app_data.color_test_open = true;
+                        ui.close_menu();
+                    }
                     if ui.button("Close sub menu").clicked() {
                         ui.close_menu();
                     }
@@ -226,7 +225,7 @@ fn build_ui(ctx: &Context, raw_input: RawInput, app_data: &mut AppData) -> FullO
                     if enter_command.gained_focus() {
                         app_data.input_string = String::from("");
                     }
-                    if enter_command.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter)){
+                    if enter_command.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter)) {
                         println!("Entered command: {}", app_data.input_string);
                         app_data.input_string = String::from("Enter command ...")
                     } else if enter_command.lost_focus() {
@@ -247,7 +246,7 @@ fn build_ui(ctx: &Context, raw_input: RawInput, app_data: &mut AppData) -> FullO
             .open(&mut app_data.frame_timing_open)
             .show(ctx, |ui| {
                 ui.vertical(|ui| {
-                    let frame_ms = app_data.frame_s / 1000.0;
+                    let frame_ms = app_data.frame_s * 1000.0;
                     let fps = 1.0 / app_data.frame_s;
                     ui.label(format!("Frame time: {frame_ms:.2}ms"));
                     ui.label(format!("FPS: {fps:.0}"));
@@ -266,6 +265,15 @@ fn build_ui(ctx: &Context, raw_input: RawInput, app_data: &mut AppData) -> FullO
                     [50.0 * app_data.ferris.aspect_ratio(), 50.0],
                 );
             });
+
+        EguiWindow::new("Color test")
+            .open(&mut app_data.color_test_open)
+            .show(ctx, |ui| {
+                ScrollArea::vertical().show(ui, |ui| {
+                    app_data.color_test.ui(ui);
+                })
+            });
+
         CentralPanel::default().show(ctx, |_| {});
     })
 }
