@@ -22,9 +22,12 @@ log = { version = "0.4.17"}
 thiserror = "1.0.40"
 
 [dev-dependencies]
-winit = "0.27.5"
-egui = "0.20.1"
-egui-winit = "0.20.1"
+winit = "0.28.3"
+egui = "0.21.0"
+egui-winit = "0.21.1"
 anyhow = "1.0.70"
 nalgebra-glm = "0.18.0"
 image = "0.24.5"
+
+[build-dependencies]
+copy_to_output = "2.1.0"

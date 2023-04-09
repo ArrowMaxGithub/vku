@@ -67,7 +67,11 @@ impl VkInitCreateInfo {
                 .dynamic_rendering(true)
                 .build(),
             additional_device_extensions: vec![],
-            surface_format: if cfg!(target_os = "linux"){ Format::B8G8R8A8_SRGB } else { Format::R8G8B8A8_SRGB },
+            surface_format: if cfg!(target_os = "linux") {
+                Format::B8G8R8A8_UNORM
+            } else {
+                Format::R8G8B8A8_UNORM
+            },
             request_img_count: 3,
             present_mode: PresentModeKHR::FIFO,
             clear_color_value: ClearColorValue {
@@ -105,7 +109,11 @@ impl VkInitCreateInfo {
                 .dynamic_rendering(true)
                 .build(),
             additional_device_extensions: vec![],
-            surface_format: if cfg!(target_os = "linux"){ Format::B8G8R8A8_SRGB } else { Format::R8G8B8A8_SRGB },
+            surface_format: if cfg!(target_os = "linux") {
+                Format::B8G8R8A8_UNORM
+            } else {
+                Format::R8G8B8A8_UNORM
+            },
             request_img_count: 3,
             present_mode: PresentModeKHR::FIFO,
             clear_color_value: ClearColorValue {
@@ -137,7 +145,11 @@ impl VkInitCreateInfo {
                 .dynamic_rendering(true)
                 .build(),
             additional_device_extensions: vec![],
-            surface_format: if cfg!(target_os = "linux"){ Format::B8G8R8A8_SRGB } else { Format::R8G8B8A8_SRGB },
+            surface_format: if cfg!(target_os = "linux") {
+                Format::B8G8R8A8_UNORM
+            } else {
+                Format::R8G8B8A8_UNORM
+            },
             request_img_count: 3,
             present_mode: PresentModeKHR::FIFO,
             clear_color_value: ClearColorValue {

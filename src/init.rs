@@ -1013,7 +1013,10 @@ impl VkInit {
             .iter()
             .find(|format| format.format == create_info.surface_format)
             .ok_or(Error::RequestedSurfaceFormatNotSupported)?;
-
+        info!(
+            "surface format: {:?} colorspace: {:?}",
+            format.format, format.color_space
+        );
         let present_modes =
             loader.get_physical_device_surface_present_modes(*physical_device, surface)?;
 
@@ -1026,11 +1029,11 @@ impl VkInit {
         let capabilities =
             loader.get_physical_device_surface_capabilities(*physical_device, surface)?;
 
-        let requested_img_count = create_info.request_img_count.max(capabilities.max_image_count);
+        let requested_img_count = create_info
+            .request_img_count
+            .max(capabilities.max_image_count);
 
-        if capabilities.max_image_count != 0
-            && requested_img_count > capabilities.max_image_count
-        {
+        if capabilities.max_image_count != 0 && requested_img_count > capabilities.max_image_count {
             return Err(Error::InsufficientFramesInFlightSupported);
         }
 
@@ -1143,13 +1146,8 @@ impl VkInit {
             physical_device,
             create_info,
         )?;
-        let (swapchain_loader, swapchain) = Self::create_swapchain(
-            instance,
-            device,
-            &surface,
-            &surface_info,
-            window_size,
-        )?;
+        let (swapchain_loader, swapchain) =
+            Self::create_swapchain(instance, device, &surface, &surface_info, window_size)?;
         let (swapchain_images, swapchain_image_views) =
             Self::create_swapchain_images(device, &swapchain_loader, &swapchain, &surface_info)?;
 
