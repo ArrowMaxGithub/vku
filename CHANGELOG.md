@@ -1,3 +1,5 @@
+### [0.1.2] Build script fix
+
 ### [0.1.1] Egui example patch
 - Example egui renderer now features the color test window from https://www.egui.rs/#colors and passes.
 
