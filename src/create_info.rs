@@ -36,6 +36,52 @@ pub struct VkInitCreateInfo {
 }
 
 impl VkInitCreateInfo {
+    /// Suitable for debug builds against Vulkan 1.3 with all available information:
+    /// - validation enabled
+    /// - best practices and synchronization checks enabled
+    /// - log level: all
+    /// - log messages: all
+    ///
+    /// Synchronization2 and dynamic rendering extensions enabled by default.
+    pub fn verbose_debug_vk_1_3() -> Self {
+        Self {
+            app_name: String::from("Default app name"),
+            engine_name: String::from("Default engine name"),
+            app_version: make_api_version(0, 0, 0, 1),
+            vk_version: API_VERSION_1_3,
+            enable_validation: true,
+            enabled_validation_layers: vec![String::from("VK_LAYER_KHRONOS_validation")],
+            enabled_validation_features: vec![
+                ValidationFeatureEnableEXT::BEST_PRACTICES,
+                ValidationFeatureEnableEXT::SYNCHRONIZATION_VALIDATION,
+            ],
+            additional_instance_extensions: vec![],
+            log_level: DebugUtilsMessageSeverityFlagsEXT::VERBOSE
+                | DebugUtilsMessageSeverityFlagsEXT::INFO
+                | DebugUtilsMessageSeverityFlagsEXT::WARNING
+                | DebugUtilsMessageSeverityFlagsEXT::ERROR,
+            log_msg: DebugUtilsMessageTypeFlagsEXT::GENERAL
+                | DebugUtilsMessageTypeFlagsEXT::VALIDATION
+                | DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
+            allow_igpu: false,
+            physical_device_1_3_features: PhysicalDeviceVulkan13Features::builder()
+                .synchronization2(true)
+                .dynamic_rendering(true)
+                .build(),
+            additional_device_extensions: vec![],
+            surface_format: if cfg!(target_os = "linux") {
+                Format::B8G8R8A8_UNORM
+            } else {
+                Format::R8G8B8A8_UNORM
+            },
+            request_img_count: 3,
+            present_mode: PresentModeKHR::FIFO,
+            clear_color_value: ClearColorValue {
+                float32: [0.0, 0.0, 0.0, 0.0],
+            },
+        }
+    }
+
     /// Suitable for debug builds against Vulkan 1.3:
     /// - validation enabled
     /// - best practices and synchronization checks enabled
