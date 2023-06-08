@@ -30,9 +30,9 @@ impl VMABuffer {
         })
     }
 
-    pub fn destroy(&self, vk_init: &VkInit) -> Result<(), Error> {
+    pub fn destroy(&self, allocator: &Allocator) -> Result<(), Error> {
         unsafe {
-            vk_mem_alloc::destroy_buffer(*vk_init.as_ref(), self.buffer, self.allocation);
+            vk_mem_alloc::destroy_buffer(*allocator, self.buffer, self.allocation);
         }
         Ok(())
     }

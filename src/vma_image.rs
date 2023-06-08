@@ -61,11 +61,11 @@ impl VMAImage {
         })
     }
 
-    pub fn destroy(&self, vk_init: &VkInit) -> Result<(), Error> {
+    pub fn destroy(&self, device: &Device, allocator: &Allocator) -> Result<(), Error> {
         unsafe {
-            vk_mem_alloc::destroy_image(*vk_init.as_ref(), self.image, self.allocation);
-            vk_init.device.destroy_image_view(self.image_view, None);
-            self.staging_buffer.destroy(vk_init)?;
+            vk_mem_alloc::destroy_image(*allocator, self.image, self.allocation);
+            device.destroy_image_view(self.image_view, None);
+            self.staging_buffer.destroy(allocator)?;
         }
         Ok(())
     }
@@ -140,7 +140,7 @@ impl VMAImage {
 
         let staging_buffer = VMABuffer::create_cpu_to_gpu_buffer(
             allocator,
-            (extent.width * extent.height * extent.depth * 4) as usize,
+            (extent.width * extent.height * extent.depth * 4) as usize, //TODO: SizeOf Format instead of hardcoded 4
             BufferUsageFlags::TRANSFER_SRC,
         )?;
 
@@ -149,6 +149,48 @@ impl VMAImage {
             allocator,
             &image_info,
             aspect_mask,
+            &allocation_info,
+            staging_buffer,
+        )
+    }
+
+    pub fn create_depth_image(
+        device: &Device,
+        allocator: &Allocator,
+        extent: Extent3D,
+        format: Format,
+    ) -> Result<VMAImage, Error> {
+        let image_info = ImageCreateInfo {
+            image_type: ImageType::TYPE_2D,
+            format,
+            extent,
+            mip_levels: 1,
+            array_layers: 1,
+            samples: SampleCountFlags::TYPE_1,
+            tiling: ImageTiling::OPTIMAL,
+            usage: ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+            sharing_mode: SharingMode::EXCLUSIVE,
+            ..Default::default()
+        };
+
+        let allocation_info = AllocationCreateInfo {
+            usage: MemoryUsage::AUTO_PREFER_DEVICE,
+            flags: AllocationCreateFlags::DEDICATED_MEMORY,
+            required_flags: MemoryPropertyFlags::DEVICE_LOCAL,
+            ..Default::default()
+        };
+
+        let staging_buffer = VMABuffer::create_cpu_to_gpu_buffer(
+            allocator,
+            (extent.width * extent.height * extent.depth * 1) as usize, //TODO: SizeOf Format instead of hardcoded 1
+            BufferUsageFlags::TRANSFER_SRC,
+        )?;
+
+        Self::new(
+            device,
+            allocator,
+            &image_info,
+            ImageAspectFlags::DEPTH,
             &allocation_info,
             staging_buffer,
         )

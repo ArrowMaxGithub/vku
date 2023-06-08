@@ -16,11 +16,25 @@ pub fn get_image_layout_transition_barrier2(
             PipelineStageFlags2::TRANSFER,
         ),
 
+        (ImageLayout::UNDEFINED, ImageLayout::SHADER_READ_ONLY_OPTIMAL) => (
+            AccessFlags2::empty(),
+            AccessFlags2::SHADER_READ,
+            PipelineStageFlags2::TOP_OF_PIPE,
+            PipelineStageFlags2::FRAGMENT_SHADER,
+        ),
+
         (ImageLayout::UNDEFINED, ImageLayout::PRESENT_SRC_KHR) => (
             AccessFlags2::empty(),
             AccessFlags2::COLOR_ATTACHMENT_READ,
             PipelineStageFlags2::TOP_OF_PIPE,
             PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
+        ),
+
+        (ImageLayout::UNDEFINED, ImageLayout::DEPTH_ATTACHMENT_OPTIMAL) => (
+            AccessFlags2::empty(),
+            AccessFlags2::DEPTH_STENCIL_ATTACHMENT_WRITE,
+            PipelineStageFlags2::TOP_OF_PIPE,
+            PipelineStageFlags2::EARLY_FRAGMENT_TESTS,
         ),
 
         (ImageLayout::SHADER_READ_ONLY_OPTIMAL, ImageLayout::TRANSFER_DST_OPTIMAL) => (

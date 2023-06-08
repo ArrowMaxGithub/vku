@@ -24,6 +24,8 @@ pub enum Error {
 
     #[error("the file extension of the shader could not be handled")]
     UnknownShaderFileExtension,
+    
+    #[cfg(feature = "shader")]
     #[error("shader compilation failed, see preprocess trace above. Source error: {0}")]
     Preprocess(shaderc::Error),
 
@@ -34,6 +36,7 @@ pub enum Error {
     Catch(Box<dyn std::error::Error>),
 }
 
+#[cfg(feature = "shader")]
 impl From<shaderc::Error> for Error {
     fn from(value: shaderc::Error) -> Self {
         Self::Preprocess(value)

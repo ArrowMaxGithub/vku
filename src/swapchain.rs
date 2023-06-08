@@ -1,4 +1,4 @@
-use crate::{imports::*, VkInit};
+use crate::{imports::*, VkInit, VMAImage};
 
 impl VkInit {
     /// Utility function to recreate the swapchain, swapchain images and image views.
@@ -17,6 +17,9 @@ impl VkInit {
             }
             head.swapchain_loader
                 .destroy_swapchain(head.swapchain, None);
+
+            //Destroy depth image
+            head.depth_image.destroy(&self.device, &self.allocator)?;
 
             //recreate swapchain
             let (swapchain_loader, swapchain) = Self::create_swapchain(
@@ -41,6 +44,10 @@ impl VkInit {
                 width: size[0],
                 height: size[1],
             };
+
+            //recreate depth image
+            let extent = Extent3D { width: size[0], height: size[1], depth: 1 };
+            head.depth_image = VMAImage::create_depth_image(&self.device, &self.allocator, extent, Format::D32_SFLOAT)?;
         }
 
         Ok(())

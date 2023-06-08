@@ -23,6 +23,8 @@ pub struct VkInitCreateInfo {
 
     //PhysicalDevice
     pub allow_igpu: bool,
+    pub physical_device_1_1_features: PhysicalDeviceVulkan11Features,
+    pub physical_device_1_2_features: PhysicalDeviceVulkan12Features,
     pub physical_device_1_3_features: PhysicalDeviceVulkan13Features,
 
     //Device
@@ -30,9 +32,11 @@ pub struct VkInitCreateInfo {
 
     //Surface
     pub surface_format: Format,
+    pub depth_format: Format,
     pub request_img_count: u32,
     pub present_mode: PresentModeKHR,
     pub clear_color_value: ClearColorValue,
+    pub clear_depth_stencil_value: ClearDepthStencilValue,
 }
 
 impl VkInitCreateInfo {
@@ -42,7 +46,7 @@ impl VkInitCreateInfo {
     /// - log level: all
     /// - log messages: all
     ///
-    /// Synchronization2 and dynamic rendering extensions enabled by default.
+    /// Synchronization2, DynamicRendering, DescriptorIndexing and ShaderDrawParameters extensions enabled by default.
     pub fn verbose_debug_vk_1_3() -> Self {
         Self {
             app_name: String::from("Default app name"),
@@ -68,17 +72,26 @@ impl VkInitCreateInfo {
                 .synchronization2(true)
                 .dynamic_rendering(true)
                 .build(),
+            physical_device_1_2_features: PhysicalDeviceVulkan12Features::builder()
+                .descriptor_binding_sampled_image_update_after_bind(true)
+                .descriptor_indexing(true)
+                .build(),
+            physical_device_1_1_features: PhysicalDeviceVulkan11Features::builder()
+                .shader_draw_parameters(true)   
+                .build(),
             additional_device_extensions: vec![],
             surface_format: if cfg!(target_os = "linux") {
                 Format::B8G8R8A8_UNORM
             } else {
                 Format::R8G8B8A8_UNORM
             },
+            depth_format: Format::D32_SFLOAT,
             request_img_count: 3,
             present_mode: PresentModeKHR::FIFO,
             clear_color_value: ClearColorValue {
                 float32: [0.0, 0.0, 0.0, 0.0],
             },
+            clear_depth_stencil_value: ClearDepthStencilValue { depth: 1.0, stencil: 0 },
         }
     }
 
@@ -91,38 +104,10 @@ impl VkInitCreateInfo {
     /// Synchronization2 and dynamic rendering extensions enabled by default.
     pub fn debug_vk_1_3() -> Self {
         Self {
-            app_name: String::from("Default app name"),
-            engine_name: String::from("Default engine name"),
-            app_version: make_api_version(0, 0, 0, 1),
-            vk_version: API_VERSION_1_3,
-            enable_validation: true,
-            enabled_validation_layers: vec![String::from("VK_LAYER_KHRONOS_validation")],
-            enabled_validation_features: vec![
-                ValidationFeatureEnableEXT::BEST_PRACTICES,
-                ValidationFeatureEnableEXT::SYNCHRONIZATION_VALIDATION,
-            ],
-            additional_instance_extensions: vec![],
             log_level: DebugUtilsMessageSeverityFlagsEXT::INFO
                 | DebugUtilsMessageSeverityFlagsEXT::WARNING
                 | DebugUtilsMessageSeverityFlagsEXT::ERROR,
-            log_msg: DebugUtilsMessageTypeFlagsEXT::VALIDATION
-                | DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
-            allow_igpu: false,
-            physical_device_1_3_features: PhysicalDeviceVulkan13Features::builder()
-                .synchronization2(true)
-                .dynamic_rendering(true)
-                .build(),
-            additional_device_extensions: vec![],
-            surface_format: if cfg!(target_os = "linux") {
-                Format::B8G8R8A8_UNORM
-            } else {
-                Format::R8G8B8A8_UNORM
-            },
-            request_img_count: 3,
-            present_mode: PresentModeKHR::FIFO,
-            clear_color_value: ClearColorValue {
-                float32: [0.0, 0.0, 0.0, 0.0],
-            },
+            .. Self::verbose_debug_vk_1_3()
         }
     }
 
@@ -135,36 +120,8 @@ impl VkInitCreateInfo {
     /// Synchronization2 and dynamic rendering extensions enabled by default.
     pub fn test_release_vk_1_3() -> Self {
         Self {
-            app_name: String::from("Default app name"),
-            engine_name: String::from("Default engine name"),
-            app_version: make_api_version(0, 0, 0, 1),
-            vk_version: API_VERSION_1_3,
-            enable_validation: true,
-            enabled_validation_layers: vec![String::from("VK_LAYER_KHRONOS_validation")],
-            enabled_validation_features: vec![
-                ValidationFeatureEnableEXT::SYNCHRONIZATION_VALIDATION,
-                ValidationFeatureEnableEXT::BEST_PRACTICES,
-            ],
-            additional_instance_extensions: vec![],
             log_level: DebugUtilsMessageSeverityFlagsEXT::WARNING,
-            log_msg: DebugUtilsMessageTypeFlagsEXT::VALIDATION
-                | DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
-            allow_igpu: false,
-            physical_device_1_3_features: PhysicalDeviceVulkan13Features::builder()
-                .synchronization2(true)
-                .dynamic_rendering(true)
-                .build(),
-            additional_device_extensions: vec![],
-            surface_format: if cfg!(target_os = "linux") {
-                Format::B8G8R8A8_UNORM
-            } else {
-                Format::R8G8B8A8_UNORM
-            },
-            request_img_count: 3,
-            present_mode: PresentModeKHR::FIFO,
-            clear_color_value: ClearColorValue {
-                float32: [0.0, 0.0, 0.0, 0.0],
-            },
+            .. Self::verbose_debug_vk_1_3()
         }
     }
 
@@ -175,32 +132,12 @@ impl VkInitCreateInfo {
     /// Synchronization2 and dynamic rendering extensions enabled by default.
     pub fn dist_vk_1_3() -> Self {
         Self {
-            app_name: String::from("Default app name"),
-            engine_name: String::from("Default engine name"),
-            app_version: make_api_version(0, 0, 0, 1),
-            vk_version: API_VERSION_1_3,
             enable_validation: false,
             enabled_validation_layers: vec![],
             enabled_validation_features: vec![],
-            additional_instance_extensions: vec![],
             log_level: DebugUtilsMessageSeverityFlagsEXT::empty(),
             log_msg: DebugUtilsMessageTypeFlagsEXT::empty(),
-            allow_igpu: false,
-            physical_device_1_3_features: PhysicalDeviceVulkan13Features::builder()
-                .synchronization2(true)
-                .dynamic_rendering(true)
-                .build(),
-            additional_device_extensions: vec![],
-            surface_format: if cfg!(target_os = "linux") {
-                Format::B8G8R8A8_UNORM
-            } else {
-                Format::R8G8B8A8_UNORM
-            },
-            request_img_count: 3,
-            present_mode: PresentModeKHR::FIFO,
-            clear_color_value: ClearColorValue {
-                float32: [0.0, 0.0, 0.0, 0.0],
-            },
+            .. Self::verbose_debug_vk_1_3()
         }
     }
 }

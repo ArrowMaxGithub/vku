@@ -1,3 +1,5 @@
+#![cfg(feature="shader")]
+
 use crate::imports::*;
 use shaderc::CompilationArtifact;
 
