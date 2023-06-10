@@ -1,3 +1,5 @@
+use vma::Alloc;
+
 use crate::{imports::*, VkInit};
 
 /// VMA-allocated buffer, allocation and allocation information.
@@ -14,9 +16,10 @@ impl VMABuffer {
         buffer_info: &BufferCreateInfo,
         allocation_create_info: &AllocationCreateInfo,
     ) -> Result<Self, Error> {
-        let (buffer, allocation, allocation_info) = unsafe {
-            vk_mem_alloc::create_buffer(*allocator, buffer_info, allocation_create_info)?
+        let (buffer, allocation) = unsafe {
+            allocator.create_buffer(buffer_info, allocation_create_info)?
         };
+        let allocation_info = allocator.get_allocation_info(&allocation);
 
         let is_mapped = allocation_create_info
             .flags
@@ -30,9 +33,9 @@ impl VMABuffer {
         })
     }
 
-    pub fn destroy(&self, allocator: &Allocator) -> Result<(), Error> {
+    pub fn destroy(&mut self, allocator: &Allocator) -> Result<(), Error> {
         unsafe {
-            vk_mem_alloc::destroy_buffer(*allocator, self.buffer, self.allocation);
+            allocator.destroy_buffer(self.buffer, &mut self.allocation);
         }
         Ok(())
     }
@@ -82,7 +85,7 @@ impl VMABuffer {
             .usage(usage);
 
         let allocation_info = AllocationCreateInfo {
-            usage: MemoryUsage::AUTO_PREFER_DEVICE,
+            usage: MemoryUsage::AutoPreferDevice,
             ..Default::default()
         };
 
@@ -121,7 +124,7 @@ impl VMABuffer {
             .usage(usage);
 
         let allocation_info = AllocationCreateInfo {
-            usage: MemoryUsage::AUTO_PREFER_DEVICE,
+            usage: MemoryUsage::AutoPreferDevice,
             flags: AllocationCreateFlags::MAPPED
                 | AllocationCreateFlags::HOST_ACCESS_SEQUENTIAL_WRITE,
             ..Default::default()
@@ -141,7 +144,7 @@ impl VMABuffer {
             .usage(usage);
 
         let allocation_info = AllocationCreateInfo {
-            usage: MemoryUsage::AUTO_PREFER_DEVICE,
+            usage: MemoryUsage::AutoPreferDevice,
             flags: AllocationCreateFlags::MAPPED
                 | AllocationCreateFlags::HOST_ACCESS_RANDOM
                 | AllocationCreateFlags::MAPPED,

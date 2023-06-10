@@ -1,3 +1,5 @@
+use vma::Alloc;
+
 use crate::{image_layout_transitions, imports::*, vma_buffer::VMABuffer, VkInit};
 
 /// VMA-allocated image, image information, image view, allocation and allocation information.
@@ -23,8 +25,10 @@ impl VMAImage {
         allocation_create_info: &AllocationCreateInfo,
         staging_buffer: VMABuffer,
     ) -> Result<Self, Error> {
-        let (image, allocation, allocation_info) =
-            unsafe { vk_mem_alloc::create_image(*allocator, image_info, allocation_create_info) }?;
+        let (image, allocation) =
+            unsafe { allocator.create_image(image_info, allocation_create_info) }?;
+
+        let allocation_info = allocator.get_allocation_info(&allocation);
 
         let image_view_create_info = ImageViewCreateInfo {
             view_type: ImageViewType::TYPE_2D,
@@ -61,11 +65,11 @@ impl VMAImage {
         })
     }
 
-    pub fn destroy(&self, device: &Device, allocator: &Allocator) -> Result<(), Error> {
+    pub fn destroy(&mut self, device: &Device, allocator: &Allocator) -> Result<(), Error> {
         unsafe {
-            vk_mem_alloc::destroy_image(*allocator, self.image, self.allocation);
-            device.destroy_image_view(self.image_view, None);
             self.staging_buffer.destroy(allocator)?;
+            allocator.destroy_image(self.image, &mut self.allocation);
+            device.destroy_image_view(self.image_view, None);
         }
         Ok(())
     }
@@ -133,7 +137,7 @@ impl VMAImage {
         };
 
         let allocation_info = AllocationCreateInfo {
-            usage: MemoryUsage::AUTO_PREFER_DEVICE,
+            usage: MemoryUsage::AutoPreferDevice,
             flags: AllocationCreateFlags::DEDICATED_MEMORY,
             ..Default::default()
         };
@@ -174,7 +178,7 @@ impl VMAImage {
         };
 
         let allocation_info = AllocationCreateInfo {
-            usage: MemoryUsage::AUTO_PREFER_DEVICE,
+            usage: MemoryUsage::AutoPreferDevice,
             flags: AllocationCreateFlags::DEDICATED_MEMORY,
             required_flags: MemoryPropertyFlags::DEVICE_LOCAL,
             ..Default::default()

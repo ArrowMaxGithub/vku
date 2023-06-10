@@ -363,14 +363,12 @@ impl VkInit {
         })
     }
 
-    
-
-    pub fn destroy_base_renderer(&self, renderer: &BaseRenderer) -> Result<(), Error> {
+    pub fn destroy_base_renderer(&self, renderer: &mut BaseRenderer) -> Result<(), Error> {
         unsafe {
-            for buffer in &renderer.index_buffers {
+            for buffer in &mut renderer.index_buffers {
                 buffer.destroy(&self.allocator)?;
             }
-            for buffer in &renderer.vertex_buffers {
+            for buffer in &mut renderer.vertex_buffers {
                 buffer.destroy(&self.allocator)?;
             }
             self.device

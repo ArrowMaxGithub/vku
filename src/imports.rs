@@ -18,7 +18,7 @@ pub(crate) use std::{
     path::Path,
     result::Result,
 };
-pub(crate) use vk_mem_alloc::{
+pub(crate) use vma::{
     Allocation, AllocationCreateFlags, AllocationCreateInfo, AllocationInfo, Allocator, MemoryUsage,
 };
 pub(crate) fn char_array_to_string(chars: &[i8; 256]) -> Result<String, Error> {

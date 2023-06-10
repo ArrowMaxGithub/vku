@@ -1,3 +1,5 @@
+use vma::AllocatorCreateInfo;
+
 use crate::create_info::VkInitCreateInfo;
 use crate::{imports::*, VMAImage};
 
@@ -271,10 +273,10 @@ impl VkInit {
         }
     }
 
-    pub fn destroy(&self) -> Result<(), Error> {
+    pub fn destroy(&mut self) -> Result<(), Error> {
         unsafe {
             self.device.device_wait_idle()?;
-            if let Some(head) = &self.head {
+            if let Some(head) = &mut self.head {
                 for image_view in &head.swapchain_image_views {
                     self.device.destroy_image_view(*image_view, None);
                 }
@@ -283,7 +285,6 @@ impl VkInit {
                 head.surface_loader.destroy_surface(head.surface, None);
                 head.depth_image.destroy(&self.device, &self.allocator)?;
             }
-            vk_mem_alloc::destroy_allocator(self.allocator);
             self.device.destroy_device(None);
             if let Some(dbg_loader) = &self.debug_loader {
                 dbg_loader.destroy_debug_utils_messenger(self.debug_messenger.unwrap(), None);
@@ -785,9 +786,6 @@ impl VkInit {
                 "Enabled validation features count: {}",
                 create_info.enabled_validation_features.len()
             );
-            for feature in &create_info.enabled_validation_features {
-                trace!("{:#?}", feature);
-            }
 
             Ok((instance, Some(debug_utils_loader), Some(debug_messenger)))
         } else {
@@ -1000,7 +998,8 @@ impl VkInit {
         physical_device: &PhysicalDevice,
         device: &Device,
     ) -> Result<Allocator, Error> {
-        let allocator = vk_mem_alloc::create_allocator(instance, *physical_device, device, None)?;
+        let create_info = AllocatorCreateInfo::new(instance, device, *physical_device);
+        let allocator = vma::Allocator::new(create_info)?;
         Ok(allocator)
     }
 
@@ -1038,10 +1037,6 @@ impl VkInit {
             .iter()
             .find(|format| format.format == create_info.surface_format)
             .ok_or(Error::RequestedSurfaceFormatNotSupported)?;
-        info!(
-            "surface format: {:?} colorspace: {:?}",
-            color_format.format, color_format.color_space
-        );
 
         let present_modes =
             loader.get_physical_device_surface_present_modes(*physical_device, surface)?;
@@ -1258,6 +1253,12 @@ impl AsRef<Device> for VkInit {
 impl AsRef<Allocator> for VkInit {
     fn as_ref(&self) -> &Allocator {
         &self.allocator
+    }
+}
+
+impl Drop for VkInit{
+    fn drop(&mut self) {
+        self.destroy().unwrap();
     }
 }
 
