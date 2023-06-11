@@ -269,7 +269,7 @@ impl VMAImage {
     ///
     /// let data = [42_u32; 100*100];
     /// image.set_staging_data(&data).unwrap();
-    /// image.enque_copy_from_staging_buffer_to_image(&init, &setup_cmd_buffer);
+    /// image.enque_copy_from_staging_buffer_to_image(&init.device, &setup_cmd_buffer);
     ///
     /// init.end_and_submit_cmd_buffer(
     ///     &setup_cmd_buffer,
@@ -281,9 +281,9 @@ impl VMAImage {
     /// ).unwrap();
     /// ```
 
-    pub fn enque_copy_from_staging_buffer_to_image<D: AsRef<Device>>(
+    pub fn enque_copy_from_staging_buffer_to_image(
         &self,
-        device: D,
+        device: &Device,
         cmd_buffer: &CommandBuffer,
     ) {
         unsafe {
@@ -306,7 +306,7 @@ impl VMAImage {
                 })
                 .build();
 
-            device.as_ref().cmd_copy_buffer_to_image(
+            device.cmd_copy_buffer_to_image(
                 *cmd_buffer,
                 self.staging_buffer.buffer,
                 self.image,

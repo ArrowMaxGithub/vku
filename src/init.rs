@@ -1,3 +1,5 @@
+use std::mem::ManuallyDrop;
+
 use vma::AllocatorCreateInfo;
 
 use crate::create_info::VkInitCreateInfo;
@@ -12,7 +14,7 @@ use crate::{imports::*, VMAImage};
 /// - Shortcuts for present and submit operations
 pub struct VkInit {
     /// [VMA](vk_mem_alloc::Allocator) allocator
-    pub allocator: Allocator,
+    pub allocator: ManuallyDrop<Allocator>,
     pub entry: Entry,
     pub instance: Instance,
     /// Only created with enabled validation
@@ -217,14 +219,6 @@ impl VkInit {
                 }
 
                 if let Some(head) = &head {
-                    //Causes a segfault in debug build for linux
-                    // Self::set_debug_object_name_static(
-                    //     dbg,
-                    //     &device,
-                    //     head.surface.as_raw(),
-                    //     ObjectType::SURFACE_KHR,
-                    //     "VKU_SurfaceKHR".to_string(),
-                    // )?;
                     Self::set_debug_object_name_static(
                         dbg,
                         &device,
@@ -233,13 +227,35 @@ impl VkInit {
                         "VKU_SwapchainKHR".to_string(),
                     )?;
 
+                    Self::set_debug_object_name_static(
+                        dbg,
+                        &device,
+                        head.depth_image.image.as_raw(),
+                        ObjectType::IMAGE,
+                        "VKU_DepthImage".to_string(),
+                    )?;
+                    Self::set_debug_object_name_static(
+                        dbg,
+                        &device,
+                        head.depth_image.image_view.as_raw(),
+                        ObjectType::IMAGE_VIEW,
+                        "VKU_DepthImage_View".to_string(),
+                    )?;
+                    Self::set_debug_object_name_static(
+                        dbg,
+                        &device,
+                        head.depth_image.allocation_info.device_memory.as_raw(),
+                        ObjectType::DEVICE_MEMORY,
+                        "VKU_DepthImage_Memory".to_string(),
+                    )?;
+
                     for (i, image) in head.swapchain_images.iter().enumerate() {
                         Self::set_debug_object_name_static(
                             dbg,
                             &device,
                             image.as_raw(),
                             ObjectType::IMAGE,
-                            format!("VKU_Image_{i}"),
+                            format!("VKU_Swapchain_Image_{i}"),
                         )?;
                     }
 
@@ -249,14 +265,14 @@ impl VkInit {
                             &device,
                             image_view.as_raw(),
                             ObjectType::IMAGE_VIEW,
-                            format!("VKU_Image_View_{i}"),
+                            format!("VKU_Swapchain_Image_View_{i}"),
                         )?;
                     }
                 }
             }
 
             Ok(Self {
-                allocator,
+                allocator: ManuallyDrop::new(allocator),
                 entry,
                 instance,
                 debug_loader,
@@ -289,7 +305,12 @@ impl VkInit {
             if let Some(dbg_loader) = &self.debug_loader {
                 dbg_loader.destroy_debug_utils_messenger(self.debug_messenger.unwrap(), None);
             }
-            self.instance.destroy_instance(None);
+
+            ManuallyDrop::drop(&mut self.allocator);
+
+            self.device.destroy_device(None);
+
+            // self.instance.destroy_instance(None);
         }
 
         Ok(())
@@ -300,7 +321,9 @@ impl VkInit {
     }
 
     pub fn head_mut(&mut self) -> &mut Head {
-        self.head.as_mut().expect("called head_mut() on headless vku")
+        self.head
+            .as_mut()
+            .expect("called head_mut() on headless vku")
     }
 
     pub fn set_debug_object_name(
@@ -491,15 +514,13 @@ impl VkInit {
             .offset(Offset2D { x: 0, y: 0 })
             .extent(head.surface_info.current_extent);
 
-        let color_attachment_info = [
-            RenderingAttachmentInfo::builder()
-                .image_view(*swapchain_image_view)
-                .image_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-                .load_op(AttachmentLoadOp::CLEAR)
-                .store_op(AttachmentStoreOp::STORE)
-                .clear_value(clear_color_value)
-                .build(),
-        ];
+        let color_attachment_info = [RenderingAttachmentInfo::builder()
+            .image_view(*swapchain_image_view)
+            .image_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+            .load_op(AttachmentLoadOp::CLEAR)
+            .store_op(AttachmentStoreOp::STORE)
+            .clear_value(clear_color_value)
+            .build()];
 
         let depth_attachment_info = RenderingAttachmentInfo::builder()
             .image_view(head.depth_image.image_view)
@@ -742,7 +763,7 @@ impl VkInit {
                 .map(|c_string| c_string.as_ptr())
                 .collect();
 
-            let mut debug_messenger_info = DebugUtilsMessengerCreateInfoEXT::builder()
+            let debug_messenger_info = DebugUtilsMessengerCreateInfoEXT::builder()
                 .message_severity(create_info.log_level)
                 .message_type(create_info.log_msg)
                 .pfn_user_callback(Some(vulkan_debug_callback));
@@ -750,13 +771,11 @@ impl VkInit {
             let mut val_features = ValidationFeaturesEXT::builder()
                 .enabled_validation_features(&create_info.enabled_validation_features);
 
-            let mut instance_create_info = InstanceCreateInfo::builder()
+            let instance_create_info = InstanceCreateInfo::builder()
                 .application_info(&app_info)
                 .enabled_layer_names(&enabled_layers_names_ptr)
                 .enabled_extension_names(&extensions_names)
                 .push_next(&mut val_features);
-
-            instance_create_info = instance_create_info.push_next(&mut debug_messenger_info);
 
             let instance = entry.create_instance(&instance_create_info, None)?;
             let debug_utils_loader = DebugUtils::new(entry, &instance);
@@ -1051,10 +1070,10 @@ impl VkInit {
             loader.get_physical_device_surface_capabilities(*physical_device, surface)?;
 
         let mut requested_img_count = create_info.request_img_count;
-        if capabilities.max_image_count != 0{
+        if capabilities.max_image_count != 0 {
             requested_img_count = requested_img_count.min(capabilities.max_image_count);
         }
-        if capabilities.min_image_count != 0{
+        if capabilities.min_image_count != 0 {
             requested_img_count = requested_img_count.max(capabilities.min_image_count);
         }
 
@@ -1154,7 +1173,11 @@ impl VkInit {
         window_size: [u32; 2],
         format: Format,
     ) -> Result<VMAImage, Error> {
-        let depth_extent = Extent3D { width: window_size[0], height: window_size[1], depth: 1 };
+        let depth_extent = Extent3D {
+            width: window_size[0],
+            height: window_size[1],
+            depth: 1,
+        };
         let depth_image = VMAImage::create_depth_image(device, allocator, depth_extent, format)?;
 
         Ok(depth_image)
@@ -1184,7 +1207,8 @@ impl VkInit {
             Self::create_swapchain(instance, device, &surface, &surface_info, window_size)?;
         let (swapchain_images, swapchain_image_views) =
             Self::create_swapchain_images(device, &swapchain_loader, &swapchain, &surface_info)?;
-        let depth_image = Self::create_depth_image(device, allocator, window_size, create_info.depth_format)?;
+        let depth_image =
+            Self::create_depth_image(device, allocator, window_size, create_info.depth_format)?;
 
         Ok(Head {
             surface_loader,
@@ -1235,30 +1259,6 @@ impl VkInit {
         }
 
         Ok(())
-    }
-}
-
-impl AsRef<Instance> for VkInit {
-    fn as_ref(&self) -> &Instance {
-        &self.instance
-    }
-}
-
-impl AsRef<Device> for VkInit {
-    fn as_ref(&self) -> &Device {
-        &self.device
-    }
-}
-
-impl AsRef<Allocator> for VkInit {
-    fn as_ref(&self) -> &Allocator {
-        &self.allocator
-    }
-}
-
-impl Drop for VkInit{
-    fn drop(&mut self) {
-        self.destroy().unwrap();
     }
 }
 

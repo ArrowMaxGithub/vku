@@ -12,7 +12,6 @@ pub(crate) use raw_window_handle::RawWindowHandle;
 pub(crate) use std::{
     borrow::Cow,
     ffi::{CStr, CString},
-    fs::{create_dir_all, read_dir, read_to_string, remove_dir_all},
     io::Cursor,
     mem::size_of,
     path::Path,

@@ -174,7 +174,7 @@ impl VkInit {
             format!("{base_debug_name}_Sampled_Image_Desc_Layout"),
         )?;
 
-        let sampler_mode = match create_info.sample_mode{
+        let sampler_mode = match create_info.sample_mode {
             SampleMode::ClampToEdge => SamplerAddressMode::CLAMP_TO_EDGE,
             SampleMode::Repeat => SamplerAddressMode::REPEAT,
         };
@@ -250,13 +250,13 @@ impl VkInit {
                 .name(&shader_entry_name)
                 .build(),
         ];
-       
+
         let rasterizer_info = PipelineRasterizationStateCreateInfo::builder()
             .depth_clamp_enable(false)
             .rasterizer_discard_enable(false)
             .polygon_mode(PolygonMode::FILL)
             .line_width(1.0)
-            .cull_mode(match create_info.depth_test{
+            .cull_mode(match create_info.depth_test {
                 DepthTest::Disabled => CullModeFlags::NONE,
                 DepthTest::Enabled => CullModeFlags::BACK,
             })
@@ -284,27 +284,23 @@ impl VkInit {
         let color_blending_info =
             PipelineColorBlendStateCreateInfo::builder().attachments(&color_blend_attachments);
 
-        let depth_stencil_state_create_info = match create_info.depth_test{
-            DepthTest::Disabled => {
-                PipelineDepthStencilStateCreateInfo::builder()
-                    .depth_test_enable(false)
-                    .depth_write_enable(false)
-                    .depth_compare_op(CompareOp::NEVER)
-                    .depth_bounds_test_enable(false)
-                    .stencil_test_enable(false)
-                    .build()
-            },
-            DepthTest::Enabled => {
-                PipelineDepthStencilStateCreateInfo::builder()
-                    .depth_test_enable(true)
-                    .depth_write_enable(true)
-                    .depth_compare_op(CompareOp::LESS_OR_EQUAL)
-                    .depth_bounds_test_enable(false)
-                    .min_depth_bounds(0.0)
-                    .max_depth_bounds(1.0)
-                    .stencil_test_enable(false)
-                    .build()
-            },
+        let depth_stencil_state_create_info = match create_info.depth_test {
+            DepthTest::Disabled => PipelineDepthStencilStateCreateInfo::builder()
+                .depth_test_enable(false)
+                .depth_write_enable(false)
+                .depth_compare_op(CompareOp::NEVER)
+                .depth_bounds_test_enable(false)
+                .stencil_test_enable(false)
+                .build(),
+            DepthTest::Enabled => PipelineDepthStencilStateCreateInfo::builder()
+                .depth_test_enable(true)
+                .depth_write_enable(true)
+                .depth_compare_op(CompareOp::LESS_OR_EQUAL)
+                .depth_bounds_test_enable(false)
+                .min_depth_bounds(0.0)
+                .max_depth_bounds(1.0)
+                .stencil_test_enable(false)
+                .build(),
         };
 
         let dynamic_states = [DynamicState::SCISSOR, DynamicState::VIEWPORT];

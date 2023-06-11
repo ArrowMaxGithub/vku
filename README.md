@@ -39,7 +39,7 @@ let init = VkInit::new(Some(&display_h), Some(&window_h), Some(size), create_inf
 
 let mut init = VkInit::new(Some(&display_h), Some(&window_h), Some(size), create_info).unwrap();
 let new_size = [1200_u32, 900_u32];
-init.recreate_swapchain(new_size).unwrap();
+init.on_resize(&display_h, &window_h, new_size).unwrap();
 ```
  ## VMA Image allocation and layout transition:
 ```rust,no_run

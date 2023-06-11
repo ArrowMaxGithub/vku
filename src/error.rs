@@ -24,7 +24,7 @@ pub enum Error {
 
     #[error("the file extension of the shader could not be handled")]
     UnknownShaderFileExtension,
-    
+
     #[cfg(feature = "shader")]
     #[error("shader compilation failed, see preprocess trace above. Source error: {0}")]
     Preprocess(shaderc::Error),
