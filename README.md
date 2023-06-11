@@ -39,7 +39,7 @@ let init = VkInit::new(Some(&display_h), Some(&window_h), Some(size), create_inf
 
 let mut init = VkInit::new(Some(&display_h), Some(&window_h), Some(size), create_info).unwrap();
 let new_size = [1200_u32, 900_u32];
-init.recreate_swapchain(new_size).unwrap();
+init.on_resize(&display_h, &window_h, new_size).unwrap();
 ```
  ## VMA Image allocation and layout transition:
 ```rust,no_run
@@ -52,7 +52,7 @@ init.recreate_swapchain(new_size).unwrap();
 # let window_h = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
 # let create_info = VkInitCreateInfo::default();
 
-let init = VkInit::new(Some(&display_h), Some(&window_h), Some(size), create_info).unwrap();
+let mut init = VkInit::new(Some(&display_h), Some(&window_h), Some(size), create_info).unwrap();
 
 let setup_cmd_buffer_pool =
     init.create_cmd_pool(CmdType::Any).unwrap();
@@ -67,7 +67,7 @@ init.begin_cmd_buffer(&setup_cmd_buffer).unwrap();
 let extent = Extent3D{width: 100, height: 100, depth: 1};
 let format = Format::R8G8B8A8_UNORM;
 let aspect_flags = ImageAspectFlags::COLOR;
-let mut image = init.create_empty_image(extent, format, aspect_flags).unwrap();
+let mut image = VMAImage::create_empty_image(&init.device, &mut init.allocator, extent, format, aspect_flags, true, "image").unwrap();
 
 let image_barrier = image.get_image_layout_transition_barrier2(
     ImageLayout::TRANSFER_DST_OPTIMAL,

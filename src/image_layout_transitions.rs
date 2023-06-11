@@ -30,6 +30,13 @@ pub fn get_image_layout_transition_barrier2(
             PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
         ),
 
+        (ImageLayout::UNDEFINED, ImageLayout::COLOR_ATTACHMENT_OPTIMAL) => (
+            AccessFlags2::empty(),
+            AccessFlags2::COLOR_ATTACHMENT_WRITE,
+            PipelineStageFlags2::TOP_OF_PIPE,
+            PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
+        ),
+
         (ImageLayout::UNDEFINED, ImageLayout::DEPTH_ATTACHMENT_OPTIMAL) => (
             AccessFlags2::empty(),
             AccessFlags2::DEPTH_STENCIL_ATTACHMENT_WRITE,
@@ -47,6 +54,13 @@ pub fn get_image_layout_transition_barrier2(
         (ImageLayout::SHADER_READ_ONLY_OPTIMAL, ImageLayout::PRESENT_SRC_KHR) => (
             AccessFlags2::SHADER_READ,
             AccessFlags2::COLOR_ATTACHMENT_READ,
+            PipelineStageFlags2::FRAGMENT_SHADER,
+            PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
+        ),
+
+        (ImageLayout::SHADER_READ_ONLY_OPTIMAL, ImageLayout::COLOR_ATTACHMENT_OPTIMAL) => (
+            AccessFlags2::SHADER_READ,
+            AccessFlags2::COLOR_ATTACHMENT_WRITE,
             PipelineStageFlags2::FRAGMENT_SHADER,
             PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
         ),
@@ -81,6 +95,20 @@ pub fn get_image_layout_transition_barrier2(
 
         (ImageLayout::PRESENT_SRC_KHR, ImageLayout::SHADER_READ_ONLY_OPTIMAL) => (
             AccessFlags2::COLOR_ATTACHMENT_READ,
+            AccessFlags2::SHADER_READ,
+            PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
+            PipelineStageFlags2::FRAGMENT_SHADER,
+        ),
+
+        (ImageLayout::COLOR_ATTACHMENT_OPTIMAL, ImageLayout::COLOR_ATTACHMENT_OPTIMAL) => (
+            AccessFlags2::COLOR_ATTACHMENT_WRITE,
+            AccessFlags2::COLOR_ATTACHMENT_WRITE,
+            PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
+            PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
+        ),
+
+        (ImageLayout::COLOR_ATTACHMENT_OPTIMAL, ImageLayout::SHADER_READ_ONLY_OPTIMAL) => (
+            AccessFlags2::COLOR_ATTACHMENT_WRITE,
             AccessFlags2::SHADER_READ,
             PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
             PipelineStageFlags2::FRAGMENT_SHADER,

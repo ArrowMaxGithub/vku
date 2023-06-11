@@ -77,7 +77,7 @@ impl VkInitCreateInfo {
                 .descriptor_indexing(true)
                 .build(),
             physical_device_1_1_features: PhysicalDeviceVulkan11Features::builder()
-                .shader_draw_parameters(true)   
+                .shader_draw_parameters(true)
                 .build(),
             additional_device_extensions: vec![],
             surface_format: if cfg!(target_os = "linux") {
@@ -91,7 +91,10 @@ impl VkInitCreateInfo {
             clear_color_value: ClearColorValue {
                 float32: [0.0, 0.0, 0.0, 0.0],
             },
-            clear_depth_stencil_value: ClearDepthStencilValue { depth: 1.0, stencil: 0 },
+            clear_depth_stencil_value: ClearDepthStencilValue {
+                depth: 1.0,
+                stencil: 0,
+            },
         }
     }
 
@@ -107,7 +110,7 @@ impl VkInitCreateInfo {
             log_level: DebugUtilsMessageSeverityFlagsEXT::INFO
                 | DebugUtilsMessageSeverityFlagsEXT::WARNING
                 | DebugUtilsMessageSeverityFlagsEXT::ERROR,
-            .. Self::verbose_debug_vk_1_3()
+            ..Self::verbose_debug_vk_1_3()
         }
     }
 
@@ -121,7 +124,7 @@ impl VkInitCreateInfo {
     pub fn test_release_vk_1_3() -> Self {
         Self {
             log_level: DebugUtilsMessageSeverityFlagsEXT::WARNING,
-            .. Self::verbose_debug_vk_1_3()
+            ..Self::verbose_debug_vk_1_3()
         }
     }
 
@@ -137,7 +140,7 @@ impl VkInitCreateInfo {
             enabled_validation_features: vec![],
             log_level: DebugUtilsMessageSeverityFlagsEXT::empty(),
             log_msg: DebugUtilsMessageTypeFlagsEXT::empty(),
-            .. Self::verbose_debug_vk_1_3()
+            ..Self::verbose_debug_vk_1_3()
         }
     }
 }

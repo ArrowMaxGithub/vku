@@ -1,5 +1,6 @@
 ### [0.2.0] Restructure
 - Changed: All shader compilation functionality is now behind the `shader` feature to make shaderc an optional dependency.
+- Changed: Switched unmaintained vk-mem-rs crate for gpu-allocator. Signature of VMABuffer and VMAImage creation have changed.
 - Changed: Moved examples to separate crate: `vku-examples`.
 
 ### [0.1.2] Build script fix
