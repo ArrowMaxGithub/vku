@@ -200,6 +200,49 @@ impl VMAImage {
         )
     }
 
+    pub fn create_render_image(
+        device: &Device,
+        allocator: &Allocator,
+        extent: Extent3D,
+        format: Format,
+        sizeof: usize,
+    ) -> Result<VMAImage, Error> {
+        let image_info = ImageCreateInfo {
+            image_type: ImageType::TYPE_2D,
+            format,
+            extent,
+            mip_levels: 1,
+            array_layers: 1,
+            samples: SampleCountFlags::TYPE_1,
+            tiling: ImageTiling::OPTIMAL,
+            usage: ImageUsageFlags::COLOR_ATTACHMENT | ImageUsageFlags::SAMPLED,
+            sharing_mode: SharingMode::EXCLUSIVE,
+            ..Default::default()
+        };
+
+        let allocation_info = AllocationCreateInfo {
+            usage: MemoryUsage::AutoPreferDevice,
+            flags: AllocationCreateFlags::DEDICATED_MEMORY,
+            required_flags: MemoryPropertyFlags::DEVICE_LOCAL,
+            ..Default::default()
+        };
+
+        let staging_buffer = VMABuffer::create_cpu_to_gpu_buffer(
+            allocator,
+            (extent.width * extent.height * extent.depth) as usize * sizeof,
+            BufferUsageFlags::TRANSFER_SRC,
+        )?;
+
+        Self::new(
+            device,
+            allocator,
+            &image_info,
+            ImageAspectFlags::COLOR,
+            &allocation_info,
+            staging_buffer,
+        )
+    }
+
     /// Sets data for the staging buffer.
     ///
     /// ```

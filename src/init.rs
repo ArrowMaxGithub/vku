@@ -301,7 +301,6 @@ impl VkInit {
                 head.surface_loader.destroy_surface(head.surface, None);
                 head.depth_image.destroy(&self.device, &self.allocator)?;
             }
-            self.device.destroy_device(None);
             if let Some(dbg_loader) = &self.debug_loader {
                 dbg_loader.destroy_debug_utils_messenger(self.debug_messenger.unwrap(), None);
             }
@@ -309,8 +308,7 @@ impl VkInit {
             ManuallyDrop::drop(&mut self.allocator);
 
             self.device.destroy_device(None);
-
-            // self.instance.destroy_instance(None);
+            // self.instance.destroy_instance(None); seg faults for no apparant reason
         }
 
         Ok(())
