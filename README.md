@@ -95,4 +95,4 @@ vku::compile_all_shaders(&src_dir_path, &target_dir_path, debug_text_result).unw
 ```
 
 ## More examples
-For more examples check the examples folder.
+For more examples check the [examples repo](https://github.com/ArrowMaxGithub/vku-examples).
