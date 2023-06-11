@@ -1,3 +1,5 @@
+use vma::Alloc;
+
 use crate::{image_layout_transitions, imports::*, vma_buffer::VMABuffer, VkInit};
 
 /// VMA-allocated image, image information, image view, allocation and allocation information.
@@ -23,8 +25,10 @@ impl VMAImage {
         allocation_create_info: &AllocationCreateInfo,
         staging_buffer: VMABuffer,
     ) -> Result<Self, Error> {
-        let (image, allocation, allocation_info) =
-            unsafe { vk_mem_alloc::create_image(*allocator, image_info, allocation_create_info) }?;
+        let (image, allocation) =
+            unsafe { allocator.create_image(image_info, allocation_create_info) }?;
+
+        let allocation_info = allocator.get_allocation_info(&allocation);
 
         let image_view_create_info = ImageViewCreateInfo {
             view_type: ImageViewType::TYPE_2D,
@@ -61,11 +65,11 @@ impl VMAImage {
         })
     }
 
-    pub fn destroy(&self, vk_init: &VkInit) -> Result<(), Error> {
+    pub fn destroy(&mut self, device: &Device, allocator: &Allocator) -> Result<(), Error> {
         unsafe {
-            vk_mem_alloc::destroy_image(*vk_init.as_ref(), self.image, self.allocation);
-            vk_init.device.destroy_image_view(self.image_view, None);
-            self.staging_buffer.destroy(vk_init)?;
+            self.staging_buffer.destroy(allocator)?;
+            allocator.destroy_image(self.image, &mut self.allocation);
+            device.destroy_image_view(self.image_view, None);
         }
         Ok(())
     }
@@ -133,14 +137,14 @@ impl VMAImage {
         };
 
         let allocation_info = AllocationCreateInfo {
-            usage: MemoryUsage::AUTO_PREFER_DEVICE,
+            usage: MemoryUsage::AutoPreferDevice,
             flags: AllocationCreateFlags::DEDICATED_MEMORY,
             ..Default::default()
         };
 
         let staging_buffer = VMABuffer::create_cpu_to_gpu_buffer(
             allocator,
-            (extent.width * extent.height * extent.depth * 4) as usize,
+            (extent.width * extent.height * extent.depth * 4) as usize, //TODO: SizeOf Format instead of hardcoded 4
             BufferUsageFlags::TRANSFER_SRC,
         )?;
 
@@ -149,6 +153,91 @@ impl VMAImage {
             allocator,
             &image_info,
             aspect_mask,
+            &allocation_info,
+            staging_buffer,
+        )
+    }
+
+    pub fn create_depth_image(
+        device: &Device,
+        allocator: &Allocator,
+        extent: Extent3D,
+        format: Format,
+    ) -> Result<VMAImage, Error> {
+        let image_info = ImageCreateInfo {
+            image_type: ImageType::TYPE_2D,
+            format,
+            extent,
+            mip_levels: 1,
+            array_layers: 1,
+            samples: SampleCountFlags::TYPE_1,
+            tiling: ImageTiling::OPTIMAL,
+            usage: ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+            sharing_mode: SharingMode::EXCLUSIVE,
+            ..Default::default()
+        };
+
+        let allocation_info = AllocationCreateInfo {
+            usage: MemoryUsage::AutoPreferDevice,
+            flags: AllocationCreateFlags::DEDICATED_MEMORY,
+            required_flags: MemoryPropertyFlags::DEVICE_LOCAL,
+            ..Default::default()
+        };
+
+        let staging_buffer = VMABuffer::create_cpu_to_gpu_buffer(
+            allocator,
+            (extent.width * extent.height * extent.depth * 1) as usize, //TODO: SizeOf Format instead of hardcoded 1
+            BufferUsageFlags::TRANSFER_SRC,
+        )?;
+
+        Self::new(
+            device,
+            allocator,
+            &image_info,
+            ImageAspectFlags::DEPTH,
+            &allocation_info,
+            staging_buffer,
+        )
+    }
+
+    pub fn create_render_image(
+        device: &Device,
+        allocator: &Allocator,
+        extent: Extent3D,
+        format: Format,
+        sizeof: usize,
+    ) -> Result<VMAImage, Error> {
+        let image_info = ImageCreateInfo {
+            image_type: ImageType::TYPE_2D,
+            format,
+            extent,
+            mip_levels: 1,
+            array_layers: 1,
+            samples: SampleCountFlags::TYPE_1,
+            tiling: ImageTiling::OPTIMAL,
+            usage: ImageUsageFlags::COLOR_ATTACHMENT | ImageUsageFlags::SAMPLED,
+            sharing_mode: SharingMode::EXCLUSIVE,
+            ..Default::default()
+        };
+
+        let allocation_info = AllocationCreateInfo {
+            usage: MemoryUsage::AutoPreferDevice,
+            flags: AllocationCreateFlags::DEDICATED_MEMORY,
+            required_flags: MemoryPropertyFlags::DEVICE_LOCAL,
+            ..Default::default()
+        };
+
+        let staging_buffer = VMABuffer::create_cpu_to_gpu_buffer(
+            allocator,
+            (extent.width * extent.height * extent.depth) as usize * sizeof,
+            BufferUsageFlags::TRANSFER_SRC,
+        )?;
+
+        Self::new(
+            device,
+            allocator,
+            &image_info,
+            ImageAspectFlags::COLOR,
             &allocation_info,
             staging_buffer,
         )
@@ -223,7 +312,7 @@ impl VMAImage {
     ///
     /// let data = [42_u32; 100*100];
     /// image.set_staging_data(&data).unwrap();
-    /// image.enque_copy_from_staging_buffer_to_image(&init, &setup_cmd_buffer);
+    /// image.enque_copy_from_staging_buffer_to_image(&init.device, &setup_cmd_buffer);
     ///
     /// init.end_and_submit_cmd_buffer(
     ///     &setup_cmd_buffer,
@@ -235,9 +324,9 @@ impl VMAImage {
     /// ).unwrap();
     /// ```
 
-    pub fn enque_copy_from_staging_buffer_to_image<D: AsRef<Device>>(
+    pub fn enque_copy_from_staging_buffer_to_image(
         &self,
-        device: D,
+        device: &Device,
         cmd_buffer: &CommandBuffer,
     ) {
         unsafe {
@@ -260,7 +349,7 @@ impl VMAImage {
                 })
                 .build();
 
-            device.as_ref().cmd_copy_buffer_to_image(
+            device.cmd_copy_buffer_to_image(
                 *cmd_buffer,
                 self.staging_buffer.buffer,
                 self.image,

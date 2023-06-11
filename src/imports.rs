@@ -12,13 +12,12 @@ pub(crate) use raw_window_handle::RawWindowHandle;
 pub(crate) use std::{
     borrow::Cow,
     ffi::{CStr, CString},
-    fs::{create_dir_all, read_dir, read_to_string, remove_dir_all},
     io::Cursor,
     mem::size_of,
     path::Path,
     result::Result,
 };
-pub(crate) use vk_mem_alloc::{
+pub(crate) use vma::{
     Allocation, AllocationCreateFlags, AllocationCreateInfo, AllocationInfo, Allocator, MemoryUsage,
 };
 pub(crate) fn char_array_to_string(chars: &[i8; 256]) -> Result<String, Error> {

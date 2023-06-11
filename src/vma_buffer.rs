@@ -1,3 +1,5 @@
+use vma::Alloc;
+
 use crate::{imports::*, VkInit};
 
 /// VMA-allocated buffer, allocation and allocation information.
@@ -14,9 +16,9 @@ impl VMABuffer {
         buffer_info: &BufferCreateInfo,
         allocation_create_info: &AllocationCreateInfo,
     ) -> Result<Self, Error> {
-        let (buffer, allocation, allocation_info) = unsafe {
-            vk_mem_alloc::create_buffer(*allocator, buffer_info, allocation_create_info)?
-        };
+        let (buffer, allocation) =
+            unsafe { allocator.create_buffer(buffer_info, allocation_create_info)? };
+        let allocation_info = allocator.get_allocation_info(&allocation);
 
         let is_mapped = allocation_create_info
             .flags
@@ -30,9 +32,9 @@ impl VMABuffer {
         })
     }
 
-    pub fn destroy(&self, vk_init: &VkInit) -> Result<(), Error> {
+    pub fn destroy(&mut self, allocator: &Allocator) -> Result<(), Error> {
         unsafe {
-            vk_mem_alloc::destroy_buffer(*vk_init.as_ref(), self.buffer, self.allocation);
+            allocator.destroy_buffer(self.buffer, &mut self.allocation);
         }
         Ok(())
     }
@@ -82,7 +84,7 @@ impl VMABuffer {
             .usage(usage);
 
         let allocation_info = AllocationCreateInfo {
-            usage: MemoryUsage::AUTO_PREFER_DEVICE,
+            usage: MemoryUsage::AutoPreferDevice,
             ..Default::default()
         };
 
@@ -121,7 +123,7 @@ impl VMABuffer {
             .usage(usage);
 
         let allocation_info = AllocationCreateInfo {
-            usage: MemoryUsage::AUTO_PREFER_DEVICE,
+            usage: MemoryUsage::AutoPreferDevice,
             flags: AllocationCreateFlags::MAPPED
                 | AllocationCreateFlags::HOST_ACCESS_SEQUENTIAL_WRITE,
             ..Default::default()
@@ -141,7 +143,7 @@ impl VMABuffer {
             .usage(usage);
 
         let allocation_info = AllocationCreateInfo {
-            usage: MemoryUsage::AUTO_PREFER_DEVICE,
+            usage: MemoryUsage::AutoPreferDevice,
             flags: AllocationCreateFlags::MAPPED
                 | AllocationCreateFlags::HOST_ACCESS_RANDOM
                 | AllocationCreateFlags::MAPPED,
@@ -283,7 +285,7 @@ impl VMABuffer {
     /// src_buffer.set_data(&data).unwrap();
     ///
     /// src_buffer.enqueue_copy_to_buffer(
-    ///     &init,
+    ///     &init.device,
     ///     &cmd_buffer,
     ///     &dst_buffer,
     ///     None,
@@ -292,9 +294,9 @@ impl VMABuffer {
     ///     ).unwrap();
     /// ```
 
-    pub fn enqueue_copy_to_buffer<D: AsRef<Device>>(
+    pub fn enqueue_copy_to_buffer(
         &self,
-        device: D,
+        device: &Device,
         cmd_buffer: &CommandBuffer,
         dst_buffer: &VMABuffer,
         src_offset: Option<u64>,
@@ -312,7 +314,7 @@ impl VMABuffer {
             .build();
 
         unsafe {
-            device.as_ref().cmd_copy_buffer(
+            device.cmd_copy_buffer(
                 *cmd_buffer,
                 self.buffer,
                 dst_buffer.buffer,

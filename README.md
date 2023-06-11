@@ -1,5 +1,5 @@
 # VKU
-Work in progress utility crate for kickstarting vulkan development with [shaderc](https://docs.rs/shaderc/0.8.0/shaderc/index.html), [ash](https://docs.rs/ash/0.37.1+1.3.235/ash/index.html) and the [VMA](https://docs.rs/vk-mem-alloc/0.1.1/vk_mem_alloc/index.html) allocator.
+Work in progress utility crate for kickstarting vulkan development with [shaderc](https://docs.rs/shaderc/0.8.0/shaderc/index.html), [ash](https://docs.rs/ash/0.37.1+1.3.235/ash/index.html) and the [VMA](https://docs.rs/vma/0.3.0/vma/) allocator.
 
 Center module is [Vkinit](crate::init::VkInit), created from [RawHandles](https://docs.rs/raw-window-handle/0.5.0/raw_window_handle/index.html) and [VkInitCreateInfo](crate::create_info::VkInitCreateInfo).
 
@@ -39,7 +39,7 @@ let init = VkInit::new(Some(&display_h), Some(&window_h), Some(size), create_inf
 
 let mut init = VkInit::new(Some(&display_h), Some(&window_h), Some(size), create_info).unwrap();
 let new_size = [1200_u32, 900_u32];
-init.recreate_swapchain(new_size).unwrap();
+init.on_resize(&display_h, &window_h, new_size).unwrap();
 ```
  ## VMA Image allocation and layout transition:
 ```rust,no_run
@@ -95,4 +95,4 @@ vku::compile_all_shaders(&src_dir_path, &target_dir_path, debug_text_result).unw
 ```
 
 ## More examples
-For more examples check the examples folder.
+For more examples check the [examples repo](https://github.com/ArrowMaxGithub/vku-examples).

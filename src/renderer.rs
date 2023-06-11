@@ -6,6 +6,8 @@ pub struct RendererCreateInfo {
     pub frames_in_flight: usize,
     pub topology: PrimitiveTopology,
     pub blend_mode: BlendMode,
+    pub depth_test: DepthTest,
+    pub sample_mode: SampleMode,
     pub vertex_code_path: String,
     pub fragment_code_path: String,
     pub additional_usage_index_buffer: BufferUsageFlags,
@@ -13,7 +15,7 @@ pub struct RendererCreateInfo {
     pub debug_name: String,
 }
 
-/// A generic single sampled renderer created from [RendererCreateInfo] and vertex, index, and push constants definitions.
+/// A generic single texture renderer created from [RendererCreateInfo] and vertex, index, and push constants definitions.
 pub struct BaseRenderer {
     pub index_buffers: Vec<VMABuffer>,
     pub vertex_buffers: Vec<VMABuffer>,
@@ -22,6 +24,18 @@ pub struct BaseRenderer {
     pub descriptor_pool: DescriptorPool,
     pub sampled_image_desc_set_layout: DescriptorSetLayout,
     pub sampler: Sampler,
+}
+
+#[derive(Clone, Copy)]
+pub enum DepthTest {
+    Disabled,
+    Enabled,
+}
+
+#[derive(Clone, Copy)]
+pub enum SampleMode {
+    ClampToEdge,
+    Repeat,
 }
 
 /// Trait for client code to convert vertex struct to [VertexInputBindingDescription] and [VertexInputAttributeDescription].
@@ -160,12 +174,17 @@ impl VkInit {
             format!("{base_debug_name}_Sampled_Image_Desc_Layout"),
         )?;
 
+        let sampler_mode = match create_info.sample_mode {
+            SampleMode::ClampToEdge => SamplerAddressMode::CLAMP_TO_EDGE,
+            SampleMode::Repeat => SamplerAddressMode::REPEAT,
+        };
+
         let sampler_info = SamplerCreateInfo::builder()
             .mag_filter(Filter::LINEAR)
             .min_filter(Filter::LINEAR)
-            .address_mode_u(SamplerAddressMode::CLAMP_TO_EDGE)
-            .address_mode_v(SamplerAddressMode::CLAMP_TO_EDGE)
-            .address_mode_w(SamplerAddressMode::CLAMP_TO_EDGE)
+            .address_mode_u(sampler_mode)
+            .address_mode_v(sampler_mode)
+            .address_mode_w(sampler_mode)
             .mipmap_mode(SamplerMipmapMode::LINEAR);
 
         let sampler = unsafe { self.device.create_sampler(&sampler_info, None)? };
@@ -237,7 +256,10 @@ impl VkInit {
             .rasterizer_discard_enable(false)
             .polygon_mode(PolygonMode::FILL)
             .line_width(1.0)
-            .cull_mode(CullModeFlags::NONE)
+            .cull_mode(match create_info.depth_test {
+                DepthTest::Disabled => CullModeFlags::NONE,
+                DepthTest::Enabled => CullModeFlags::BACK,
+            })
             .front_face(FrontFace::CLOCKWISE)
             .depth_bias_enable(false)
             .depth_bias_constant_factor(0.0)
@@ -262,21 +284,35 @@ impl VkInit {
         let color_blending_info =
             PipelineColorBlendStateCreateInfo::builder().attachments(&color_blend_attachments);
 
-        let depth_stencil_state_create_info = PipelineDepthStencilStateCreateInfo::builder()
-            .depth_test_enable(false)
-            .depth_write_enable(false)
-            .depth_compare_op(CompareOp::NEVER)
-            .depth_bounds_test_enable(false)
-            .stencil_test_enable(false)
-            .build();
+        let depth_stencil_state_create_info = match create_info.depth_test {
+            DepthTest::Disabled => PipelineDepthStencilStateCreateInfo::builder()
+                .depth_test_enable(false)
+                .depth_write_enable(false)
+                .depth_compare_op(CompareOp::NEVER)
+                .depth_bounds_test_enable(false)
+                .stencil_test_enable(false)
+                .build(),
+            DepthTest::Enabled => PipelineDepthStencilStateCreateInfo::builder()
+                .depth_test_enable(true)
+                .depth_write_enable(true)
+                .depth_compare_op(CompareOp::LESS_OR_EQUAL)
+                .depth_bounds_test_enable(false)
+                .min_depth_bounds(0.0)
+                .max_depth_bounds(1.0)
+                .stencil_test_enable(false)
+                .build(),
+        };
 
         let dynamic_states = [DynamicState::SCISSOR, DynamicState::VIEWPORT];
         let dynamic_states_info =
             PipelineDynamicStateCreateInfo::builder().dynamic_states(&dynamic_states);
 
-        let format = [head.surface_info.format.format];
+        let color_format = [head.surface_info.color_format.format];
+        let depth_format = head.depth_format;
+
         let mut pipeline_rendering_info = PipelineRenderingCreateInfo::builder()
-            .color_attachment_formats(&format)
+            .color_attachment_formats(&color_format)
+            .depth_attachment_format(depth_format)
             .build();
 
         let pipeline_info_builder = GraphicsPipelineCreateInfo::builder()
@@ -323,13 +359,13 @@ impl VkInit {
         })
     }
 
-    pub fn destroy_base_renderer(&self, renderer: &BaseRenderer) -> Result<(), Error> {
+    pub fn destroy_base_renderer(&self, renderer: &mut BaseRenderer) -> Result<(), Error> {
         unsafe {
-            for buffer in &renderer.index_buffers {
-                buffer.destroy(self)?;
+            for buffer in &mut renderer.index_buffers {
+                buffer.destroy(&self.allocator)?;
             }
-            for buffer in &renderer.vertex_buffers {
-                buffer.destroy(self)?;
+            for buffer in &mut renderer.vertex_buffers {
+                buffer.destroy(&self.allocator)?;
             }
             self.device
                 .destroy_pipeline_layout(renderer.pipeline_layout, None);
