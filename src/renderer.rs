@@ -85,7 +85,7 @@ impl From<BlendMode> for PipelineColorBlendAttachmentState {
 
 impl VkInit {
     pub fn create_base_renderer<Index, Vertex, Push>(
-        &mut self,
+        &self,
         create_info: &RendererCreateInfo,
     ) -> Result<BaseRenderer, Error>
     where
@@ -100,37 +100,23 @@ impl VkInit {
             .vertex_attribute_descriptions(&vertex_input_atrtibute_desc);
 
         let index_size = size_of::<Index>() * create_info.initial_buffer_length;
-        let _vertex_size = size_of::<Vertex>() * create_info.initial_buffer_length;
+        let vertex_size = size_of::<Vertex>() * create_info.initial_buffer_length;
 
-        let index_buffers: Vec<VMABuffer> = (0..create_info.frames_in_flight)
-            .flat_map(|i| {
-                VMABuffer::create_cpu_to_gpu_buffer(
-                    &self.device,
-                    &mut self.allocator,
-                    index_size,
-                    create_info.additional_usage_index_buffer | BufferUsageFlags::INDEX_BUFFER,
-                    &format!("{base_debug_name}_Index_Buffer_{i}"),
-                )
-            })
-            .collect();
-
+        let index_buffers = self.create_cpu_to_gpu_buffers(
+            index_size,
+            create_info.additional_usage_index_buffer | BufferUsageFlags::INDEX_BUFFER,
+            create_info.frames_in_flight,
+        )?;
         for (i, vma_buffer) in index_buffers.iter().enumerate() {
             vma_buffer
                 .set_debug_object_name(self, format!("{base_debug_name}_Index_Buffer_{i}"))?;
         }
 
-        let vertex_buffers: Vec<VMABuffer> = (0..create_info.frames_in_flight)
-            .flat_map(|i| {
-                VMABuffer::create_cpu_to_gpu_buffer(
-                    &self.device,
-                    &mut self.allocator,
-                    index_size,
-                    create_info.additional_usage_index_buffer | BufferUsageFlags::VERTEX_BUFFER,
-                    &format!("{base_debug_name}_Vertex_Buffer_{i}"),
-                )
-            })
-            .collect();
-
+        let vertex_buffers = self.create_cpu_to_gpu_buffers(
+            vertex_size,
+            create_info.additional_usage_vertex_buffer | BufferUsageFlags::VERTEX_BUFFER,
+            create_info.frames_in_flight,
+        )?;
         for (i, vma_buffer) in vertex_buffers.iter().enumerate() {
             vma_buffer
                 .set_debug_object_name(self, format!("{base_debug_name}_Vertex_Buffer_{i}"))?;
@@ -188,7 +174,7 @@ impl VkInit {
             format!("{base_debug_name}_Sampled_Image_Desc_Layout"),
         )?;
 
-        let sampler_mode = match create_info.sample_mode {
+        let sampler_mode = match create_info.sample_mode{
             SampleMode::ClampToEdge => SamplerAddressMode::CLAMP_TO_EDGE,
             SampleMode::Repeat => SamplerAddressMode::REPEAT,
         };
@@ -264,13 +250,13 @@ impl VkInit {
                 .name(&shader_entry_name)
                 .build(),
         ];
-
+       
         let rasterizer_info = PipelineRasterizationStateCreateInfo::builder()
             .depth_clamp_enable(false)
             .rasterizer_discard_enable(false)
             .polygon_mode(PolygonMode::FILL)
             .line_width(1.0)
-            .cull_mode(match create_info.depth_test {
+            .cull_mode(match create_info.depth_test{
                 DepthTest::Disabled => CullModeFlags::NONE,
                 DepthTest::Enabled => CullModeFlags::BACK,
             })
@@ -298,23 +284,27 @@ impl VkInit {
         let color_blending_info =
             PipelineColorBlendStateCreateInfo::builder().attachments(&color_blend_attachments);
 
-        let depth_stencil_state_create_info = match create_info.depth_test {
-            DepthTest::Disabled => PipelineDepthStencilStateCreateInfo::builder()
-                .depth_test_enable(false)
-                .depth_write_enable(false)
-                .depth_compare_op(CompareOp::NEVER)
-                .depth_bounds_test_enable(false)
-                .stencil_test_enable(false)
-                .build(),
-            DepthTest::Enabled => PipelineDepthStencilStateCreateInfo::builder()
-                .depth_test_enable(true)
-                .depth_write_enable(true)
-                .depth_compare_op(CompareOp::LESS_OR_EQUAL)
-                .depth_bounds_test_enable(false)
-                .min_depth_bounds(0.0)
-                .max_depth_bounds(1.0)
-                .stencil_test_enable(false)
-                .build(),
+        let depth_stencil_state_create_info = match create_info.depth_test{
+            DepthTest::Disabled => {
+                PipelineDepthStencilStateCreateInfo::builder()
+                    .depth_test_enable(false)
+                    .depth_write_enable(false)
+                    .depth_compare_op(CompareOp::NEVER)
+                    .depth_bounds_test_enable(false)
+                    .stencil_test_enable(false)
+                    .build()
+            },
+            DepthTest::Enabled => {
+                PipelineDepthStencilStateCreateInfo::builder()
+                    .depth_test_enable(true)
+                    .depth_write_enable(true)
+                    .depth_compare_op(CompareOp::LESS_OR_EQUAL)
+                    .depth_bounds_test_enable(false)
+                    .min_depth_bounds(0.0)
+                    .max_depth_bounds(1.0)
+                    .stencil_test_enable(false)
+                    .build()
+            },
         };
 
         let dynamic_states = [DynamicState::SCISSOR, DynamicState::VIEWPORT];
@@ -373,13 +363,13 @@ impl VkInit {
         })
     }
 
-    pub fn destroy_base_renderer(&mut self, renderer: BaseRenderer) -> Result<(), Error> {
+    pub fn destroy_base_renderer(&self, renderer: &mut BaseRenderer) -> Result<(), Error> {
         unsafe {
-            for buffer in renderer.index_buffers {
-                buffer.destroy(&self.device, &mut self.allocator)?;
+            for buffer in &mut renderer.index_buffers {
+                buffer.destroy(&self.allocator)?;
             }
-            for buffer in renderer.vertex_buffers {
-                buffer.destroy(&self.device, &mut self.allocator)?;
+            for buffer in &mut renderer.vertex_buffers {
+                buffer.destroy(&self.allocator)?;
             }
             self.device
                 .destroy_pipeline_layout(renderer.pipeline_layout, None);

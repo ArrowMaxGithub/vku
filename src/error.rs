@@ -24,16 +24,13 @@ pub enum Error {
 
     #[error("the file extension of the shader could not be handled")]
     UnknownShaderFileExtension,
-
+    
     #[cfg(feature = "shader")]
     #[error("shader compilation failed, see preprocess trace above. Source error: {0}")]
     Preprocess(shaderc::Error),
 
     #[error("incorrect usage of the vulkan API: {0}")]
     VkError(ash::vk::Result),
-
-    #[error("gpu allocator error: {0}")]
-    AllocError(gpu_allocator::AllocationError),
 
     #[error("encountered an unknown error: {0}")]
     Catch(Box<dyn std::error::Error>),
@@ -67,12 +64,6 @@ impl From<std::io::Error> for Error {
 impl From<ash::vk::Result> for Error {
     fn from(value: ash::vk::Result) -> Self {
         Self::VkError(value)
-    }
-}
-
-impl From<gpu_allocator::AllocationError> for Error {
-    fn from(value: gpu_allocator::AllocationError) -> Self {
-        Self::AllocError(value)
     }
 }
 

@@ -17,10 +17,8 @@ pub use compute_shader::ComputeShader;
 pub use create_info::VkInitCreateInfo;
 pub use error::Error;
 pub use init::{CmdType, PhysicalDeviceInfo, SurfaceInfo, VkInit};
-pub use renderer::{
-    BaseRenderer, BlendMode, DepthTest, RendererCreateInfo, SampleMode, VertexConvert,
-};
-#[cfg(feature = "shader")]
-pub use shader::{compile_all_shaders, shader_ad_hoc};
+pub use renderer::{BaseRenderer, BlendMode, DepthTest, SampleMode, RendererCreateInfo, VertexConvert};
 pub use vma_buffer::VMABuffer;
 pub use vma_image::VMAImage;
+#[cfg(feature = "shader")]
+pub use shader::{compile_all_shaders, shader_ad_hoc};
