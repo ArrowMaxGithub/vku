@@ -77,7 +77,8 @@ impl VkInit {
                 &self.device,
                 &self.allocator,
                 extent,
-                Format::D32_SFLOAT,
+                head.depth_format,
+                head.depth_format_sizeof,
             )?;
         }
 

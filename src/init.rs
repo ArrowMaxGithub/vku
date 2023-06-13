@@ -45,6 +45,7 @@ pub struct Head {
     pub clear_depth_stencil_value: ClearDepthStencilValue,
     pub surface_info: SurfaceInfo,
     pub depth_format: Format,
+    pub depth_format_sizeof: usize,
     pub depth_image: VMAImage,
 }
 
@@ -1170,13 +1171,15 @@ impl VkInit {
         allocator: &Allocator,
         window_size: [u32; 2],
         format: Format,
+        sizeof: usize,
     ) -> Result<VMAImage, Error> {
         let depth_extent = Extent3D {
             width: window_size[0],
             height: window_size[1],
             depth: 1,
         };
-        let depth_image = VMAImage::create_depth_image(device, allocator, depth_extent, format)?;
+        let depth_image =
+            VMAImage::create_depth_image(device, allocator, depth_extent, format, sizeof)?;
 
         Ok(depth_image)
     }
@@ -1205,8 +1208,13 @@ impl VkInit {
             Self::create_swapchain(instance, device, &surface, &surface_info, window_size)?;
         let (swapchain_images, swapchain_image_views) =
             Self::create_swapchain_images(device, &swapchain_loader, &swapchain, &surface_info)?;
-        let depth_image =
-            Self::create_depth_image(device, allocator, window_size, create_info.depth_format)?;
+        let depth_image = Self::create_depth_image(
+            device,
+            allocator,
+            window_size,
+            create_info.depth_format,
+            create_info.depth_format_sizeof,
+        )?;
 
         Ok(Head {
             surface_loader,
@@ -1219,6 +1227,7 @@ impl VkInit {
             clear_depth_stencil_value: create_info.clear_depth_stencil_value,
             surface_info,
             depth_format: create_info.depth_format,
+            depth_format_sizeof: create_info.depth_format_sizeof,
             depth_image,
         })
     }

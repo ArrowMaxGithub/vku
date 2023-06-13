@@ -163,6 +163,7 @@ impl VMAImage {
         allocator: &Allocator,
         extent: Extent3D,
         format: Format,
+        sizeof: usize,
     ) -> Result<VMAImage, Error> {
         let image_info = ImageCreateInfo {
             image_type: ImageType::TYPE_2D,
@@ -186,7 +187,7 @@ impl VMAImage {
 
         let staging_buffer = VMABuffer::create_cpu_to_gpu_buffer(
             allocator,
-            (extent.width * extent.height * extent.depth * 1) as usize, //TODO: SizeOf Format instead of hardcoded 1
+            (extent.width * extent.height * extent.depth) as usize * sizeof,
             BufferUsageFlags::TRANSFER_SRC,
         )?;
 

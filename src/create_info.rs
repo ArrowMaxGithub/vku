@@ -33,6 +33,7 @@ pub struct VkInitCreateInfo {
     //Surface
     pub surface_format: Format,
     pub depth_format: Format,
+    pub depth_format_sizeof: usize,
     pub request_img_count: u32,
     pub present_mode: PresentModeKHR,
     pub clear_color_value: ClearColorValue,
@@ -86,6 +87,7 @@ impl VkInitCreateInfo {
                 Format::R8G8B8A8_UNORM
             },
             depth_format: Format::D32_SFLOAT,
+            depth_format_sizeof: 4,
             request_img_count: 3,
             present_mode: PresentModeKHR::FIFO,
             clear_color_value: ClearColorValue {

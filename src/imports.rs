@@ -2,7 +2,6 @@ pub(crate) use ash::extensions::{
     ext::DebugUtils,
     khr::{Surface, Swapchain},
 };
-pub(crate) use ash::util::read_spv;
 pub(crate) use ash::vk::*;
 pub(crate) use ash::{Device, Entry, Instance};
 
@@ -12,9 +11,7 @@ pub(crate) use raw_window_handle::RawWindowHandle;
 pub(crate) use std::{
     borrow::Cow,
     ffi::{CStr, CString},
-    io::Cursor,
     mem::size_of,
-    path::Path,
     result::Result,
 };
 pub(crate) use vma::{
