@@ -84,7 +84,7 @@ mod tests {
     fn default_pipeline() {
         let vk_init = default_vk_init();
 
-        let pipeline = VKUPipeline::builder()
+        let _pipeline = VKUPipeline::builder()
             .with_vertex::<Vertex2D>(PrimitiveTopology::TRIANGLE_LIST)
             .with_push_constants::<Push>()
             .with_tesselation(1)

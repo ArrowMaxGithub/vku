@@ -1,7 +1,6 @@
 use ash::util::read_spv;
 use ash::vk::*;
 use ash::Device;
-use itertools::izip;
 use std::ffi::CStr;
 use std::mem::size_of;
 use std::path::Path;
