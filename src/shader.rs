@@ -4,6 +4,7 @@ use crate::imports::*;
 use shaderc::CompilationArtifact;
 
 use std::fs::{create_dir_all, read_dir, read_to_string, remove_dir_all};
+use std::path::Path;
 
 /// Compiles all GLSL shaders in ```src_dir_path``` to SPIR-V shader binaries in ```target_dir_path``` alongside optional debug text results.
 ///
