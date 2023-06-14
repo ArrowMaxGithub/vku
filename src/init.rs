@@ -13,7 +13,7 @@ use crate::{imports::*, VMAImage};
 /// - Optionally exposed dedicated compute and transfer queues
 /// - Shortcuts for present and submit operations
 pub struct VkInit {
-    /// [VMA](vk_mem_alloc::Allocator) allocator
+    /// [VMA](vma::Allocator) allocator
     pub allocator: ManuallyDrop<Allocator>,
     pub entry: Entry,
     pub instance: Instance,

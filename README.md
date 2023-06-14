@@ -50,10 +50,8 @@ let vk_init: VkInit = todo!();
 
 let setup_cmd_buffer_pool =
     vk_init.create_cmd_pool(CmdType::Any).unwrap();
-
 let setup_cmd_buffer =
     vk_init.create_command_buffers(&setup_cmd_buffer_pool, 1).unwrap()[0];
-    
 let setup_fence = vk_init.create_fence().unwrap();
 
 vk_init.begin_cmd_buffer(&setup_cmd_buffer).unwrap();
