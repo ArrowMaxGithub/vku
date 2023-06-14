@@ -17,16 +17,50 @@ pub struct DepthInfo {
     pub max_depth: f32,
 }
 
+impl Default for DepthInfo {
+    fn default() -> Self {
+        Self {
+            test: false,
+            write: false,
+            comp_op: CompareOp::LESS_OR_EQUAL,
+            min_depth: 0.0,
+            max_depth: 1.0,
+        }
+    }
+}
+
+impl DepthInfo {
+    pub fn enabled_positive_depth() -> Self {
+        DepthInfo {
+            test: true,
+            write: true,
+            comp_op: CompareOp::LESS_OR_EQUAL,
+            min_depth: 0.0,
+            max_depth: 1.0,
+        }
+    }
+}
+
 pub struct StencilInfo {
     pub test: bool,
     pub front: StencilOpState,
     pub back: StencilOpState,
 }
 
+impl Default for StencilInfo {
+    fn default() -> Self {
+        Self {
+            test: false,
+            front: Default::default(),
+            back: Default::default(),
+        }
+    }
+}
+
 /// Trait for client code to convert vertex struct to [VertexInputBindingDescription] and [VertexInputAttributeDescription].
 pub trait VertexConvert {
-    fn binding_desc() -> Vec<VertexInputBindingDescription>;
-    fn attrib_desc() -> Vec<VertexInputAttributeDescription>;
+    fn binding_desc() -> &'static [VertexInputBindingDescription];
+    fn attrib_desc() -> &'static [VertexInputAttributeDescription];
 }
 
 /// Shortcut to generate [PipelineColorBlendAttachmentState] for common blend modes.
@@ -74,11 +108,11 @@ pub struct VKUPipeline {
     pub desc_set_layout: DescriptorSetLayout,
     pub layout: PipelineLayout,
     pub pipeline: Pipeline,
-    pub renderpasses: Vec<RenderPass>,
+    pub renderpass: RenderPass,
 }
 
 impl VKUPipeline {
-    pub fn builder<V: VertexConvert>() -> VKUPipelineBuilder {
+    pub fn builder() -> VKUPipelineBuilder {
         VKUPipelineBuilder::default()
     }
 
@@ -87,9 +121,7 @@ impl VKUPipeline {
             device.destroy_descriptor_set_layout(self.desc_set_layout, None);
             device.destroy_pipeline_layout(self.layout, None);
             device.destroy_pipeline(self.pipeline, None);
-            for renderpass in &mut self.renderpasses {
-                device.destroy_render_pass(*renderpass, None);
-            }
+            device.destroy_render_pass(self.renderpass, None);
         }
 
         Ok(())
@@ -99,7 +131,7 @@ impl VKUPipeline {
 #[derive(Default)]
 pub struct VKUPipelineBuilder {
     layout_push_constants_range: PushConstantRange,
-    layout_desc_set_layout_create_info: DescriptorSetLayoutCreateInfo,
+    layout_desc_set_layout_bindings: Vec<DescriptorSetLayoutBinding>,
 
     renderpass_attachments: Vec<Vec<AttachmentDescription>>,
     renderpass_subpasses: Vec<Vec<SubpassDescription>>,
@@ -108,6 +140,8 @@ pub struct VKUPipelineBuilder {
     pipeline_stages: Vec<PipelineShaderStageCreateInfo>,
     pipeline_vertex_input: PipelineVertexInputStateCreateInfo,
     pipeline_input_assembly: PipelineInputAssemblyStateCreateInfo,
+    pipeline_tesselation: PipelineTessellationStateCreateInfo,
+    pipeline_viewport: PipelineViewportStateCreateInfo,
     pipeline_rasterization: PipelineRasterizationStateCreateInfo,
     pipeline_multisample: PipelineMultisampleStateCreateInfo,
     pipeline_depthstencil: PipelineDepthStencilStateCreateInfo,
@@ -117,9 +151,13 @@ pub struct VKUPipelineBuilder {
 
 impl VKUPipelineBuilder {
     pub fn build(self, device: &Device) -> Result<VKUPipeline, Error> {
-        let desc_set_layout = unsafe {
-            device.create_descriptor_set_layout(&self.layout_desc_set_layout_create_info, None)?
-        };
+        let desc_set_layout_create_info = DescriptorSetLayoutCreateInfo::builder()
+            .flags(DescriptorSetLayoutCreateFlags::empty())
+            .bindings(&self.layout_desc_set_layout_bindings)
+            .build();
+
+        let desc_set_layout =
+            unsafe { device.create_descriptor_set_layout(&desc_set_layout_create_info, None)? };
 
         let layout_create_info = PipelineLayoutCreateInfo::builder()
             .push_constant_ranges(&[self.layout_push_constants_range])
@@ -131,33 +169,37 @@ impl VKUPipelineBuilder {
         assert!(self.renderpass_attachments.len() == self.renderpass_subpasses.len());
         assert!(self.renderpass_subpasses.len() == self.renderpass_dependencies.len());
 
-        let renderpass_create_infos: Vec<RenderPassCreateInfo> = izip!(
-            self.renderpass_attachments,
-            self.renderpass_subpasses,
-            self.renderpass_dependencies
-        )
-        .map(|(attachments, subpasses, dependencies)| {
-            RenderPassCreateInfo::builder()
-                .attachments(&attachments)
-                .subpasses(&subpasses)
-                .dependencies(&dependencies)
-                .build()
-        })
-        .collect();
+        let renderpass_create_infos: Vec<RenderPassCreateInfo> = self
+            .renderpass_attachments
+            .iter()
+            .zip(self.renderpass_subpasses.iter())
+            .zip(self.renderpass_dependencies.iter())
+            .map(|((attachments, subpasses), dependencies)| {
+                RenderPassCreateInfo::builder()
+                    .attachments(attachments)
+                    .subpasses(subpasses)
+                    .dependencies(dependencies)
+                    .build()
+            })
+            .collect();
 
-        let renderpasses: Vec<RenderPass> =
-            unsafe { Self::create_render_passes(device, &renderpass_create_infos)? };
+        let renderpass: RenderPass =
+            unsafe { Self::create_render_passes(device, &renderpass_create_infos)?[0] };
 
         let pipeline_create_info = GraphicsPipelineCreateInfo::builder()
             .stages(&self.pipeline_stages)
             .vertex_input_state(&self.pipeline_vertex_input)
             .input_assembly_state(&self.pipeline_input_assembly)
+            .tessellation_state(&self.pipeline_tesselation)
+            .viewport_state(&self.pipeline_viewport)
             .rasterization_state(&self.pipeline_rasterization)
             .multisample_state(&self.pipeline_multisample)
             .depth_stencil_state(&self.pipeline_depthstencil)
             .color_blend_state(&self.pipeline_colorblend)
             .dynamic_state(&self.pipeline_dynamic)
             .layout(layout)
+            .render_pass(renderpass)
+            .subpass(0)
             .build();
 
         let pipeline = unsafe { Self::create_pipeline(device, &[pipeline_create_info])? };
@@ -166,7 +208,7 @@ impl VKUPipelineBuilder {
             desc_set_layout,
             layout,
             pipeline,
-            renderpasses,
+            renderpass,
         })
     }
 
@@ -176,16 +218,33 @@ impl VKUPipelineBuilder {
         stage: ShaderStageFlags,
         path: impl AsRef<Path>,
         spec_constants: &[u32],
-    ) -> Result<Self, Error> {
+    ) -> Self {
         let shader_module = {
-            let mut file = std::fs::File::open(path)?;
-            let spirv = read_spv(&mut file)?;
+            let mut file = match std::fs::File::open(path.as_ref()) {
+                Ok(file) => file,
+                Err(e) => panic!(
+                    "failed to open file at {:?}. Reason: {:?}",
+                    path.as_ref(),
+                    e
+                ),
+            };
+
+            let spirv = match read_spv(&mut file) {
+                Ok(spirv) => spirv,
+                Err(e) => panic!("failed to read spirv from opened file. Reason: {e}"),
+            };
+
             let create_info = ShaderModuleCreateInfo::builder()
                 .flags(ShaderModuleCreateFlags::empty())
                 .code(&spirv)
                 .build();
 
-            unsafe { device.create_shader_module(&create_info, None)? }
+            unsafe {
+                match device.create_shader_module(&create_info, None) {
+                    Ok(shader_module) => shader_module,
+                    Err(e) => panic!("failed to create shader module from spirv. Reason: {e}"),
+                }
+            }
         };
 
         let map_entries: Vec<SpecializationMapEntry> = spec_constants
@@ -216,7 +275,7 @@ impl VKUPipelineBuilder {
             .build();
 
         self.pipeline_stages.push(shader_stage_create_info);
-        Ok(self)
+        self
     }
 
     pub fn push_render_pass(
@@ -224,12 +283,11 @@ impl VKUPipelineBuilder {
         attachments: &[AttachmentDescription],
         subpasses: &[SubpassDescription],
         dependecies: &[SubpassDependency],
-    ) -> Result<Self, Error> {
+    ) -> Self {
         self.renderpass_attachments.push(attachments.to_vec());
         self.renderpass_subpasses.push(subpasses.to_vec());
         self.renderpass_dependencies.push(dependecies.to_vec());
-
-        Ok(self)
+        self
     }
 
     pub fn with_rasterization(
@@ -238,12 +296,31 @@ impl VKUPipelineBuilder {
         cull_mode: CullModeFlags,
     ) -> Self {
         let rasterization = PipelineRasterizationStateCreateInfo::builder()
+            .rasterizer_discard_enable(true)
             .front_face(FrontFace::COUNTER_CLOCKWISE)
             .polygon_mode(polygon_mode)
             .cull_mode(cull_mode)
             .build();
 
         self.pipeline_rasterization = rasterization;
+        self
+    }
+
+    pub fn with_tesselation(mut self, patch_control_points: u32) -> Self {
+        let tesselation = PipelineTessellationStateCreateInfo::builder()
+            .patch_control_points(patch_control_points)
+            .build();
+
+        self.pipeline_tesselation = tesselation;
+        self
+    }
+
+    pub fn with_viewport(mut self, viewports: &[Viewport]) -> Self {
+        let viewport = PipelineViewportStateCreateInfo::builder()
+            .viewports(viewports)
+            .build();
+
+        self.pipeline_viewport = viewport;
         self
     }
 
@@ -297,14 +374,14 @@ impl VKUPipelineBuilder {
         self
     }
 
-    pub fn with_vertex<V: VertexConvert>(mut self, vertex_topology: PrimitiveTopology) -> Self {
+    pub fn with_vertex<V: VertexConvert>(mut self, primitive_topology: PrimitiveTopology) -> Self {
         let pipeline_vertex_input = PipelineVertexInputStateCreateInfo::builder()
-            .vertex_binding_descriptions(&V::binding_desc())
-            .vertex_attribute_descriptions(&V::attrib_desc())
+            .vertex_binding_descriptions(V::binding_desc())
+            .vertex_attribute_descriptions(V::attrib_desc())
             .build();
 
         let pipeline_input_assembly = PipelineInputAssemblyStateCreateInfo::builder()
-            .topology(vertex_topology)
+            .topology(primitive_topology)
             .build();
 
         self.pipeline_vertex_input = pipeline_vertex_input;
@@ -324,12 +401,16 @@ impl VKUPipelineBuilder {
         self
     }
 
-    pub fn with_descriptors(mut self, descriptors: &[(DescriptorType, ShaderStageFlags)]) -> Self {
-        let bindings: Vec<DescriptorSetLayoutBinding> = descriptors
+    pub fn with_descriptors(
+        mut self,
+        descriptors: &[(DescriptorType, ShaderStageFlags, u32)],
+    ) -> Self {
+        let desc_set_layout_bindings: Vec<DescriptorSetLayoutBinding> = descriptors
             .iter()
             .enumerate()
-            .map(|(index, (ty, stages))| {
+            .map(|(index, (ty, stages, count))| {
                 DescriptorSetLayoutBinding::builder()
+                    .descriptor_count(*count)
                     .binding(index as u32)
                     .descriptor_type(*ty)
                     .stage_flags(*stages)
@@ -337,12 +418,7 @@ impl VKUPipelineBuilder {
             })
             .collect();
 
-        let desc_set_layout_create_info = DescriptorSetLayoutCreateInfo::builder()
-            .flags(DescriptorSetLayoutCreateFlags::empty())
-            .bindings(&bindings)
-            .build();
-
-        self.layout_desc_set_layout_create_info = desc_set_layout_create_info;
+        self.layout_desc_set_layout_bindings = desc_set_layout_bindings;
         self
     }
 
