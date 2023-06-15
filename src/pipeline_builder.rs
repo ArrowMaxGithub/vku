@@ -8,6 +8,362 @@ use std::result::Result;
 
 use crate::Error;
 
+pub struct VKUPipeline {
+    pub set_layout: DescriptorSetLayout,
+    pub renderpass: RenderPass,
+    pub layout: PipelineLayout,
+    pub pipeline: Pipeline,
+}
+
+impl VKUPipeline {
+    pub fn builder() -> VKUPipelineBuilder {
+        VKUPipelineBuilder::default()
+    }
+
+    pub fn destroy(&mut self, device: &Device) -> Result<(), Error> {
+        unsafe {
+            device.destroy_descriptor_set_layout(self.set_layout, None);
+            device.destroy_pipeline_layout(self.layout, None);
+            device.destroy_pipeline(self.pipeline, None);
+            device.destroy_render_pass(self.renderpass, None);
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+pub struct VKUPipelineBuilder {
+    pipeline_stages: Vec<(
+        ShaderStageFlags,
+        ShaderModule,
+        Vec<u8>,
+        Vec<SpecializationMapEntry>,
+    )>,
+    pipeline_vertex_input: (
+        Vec<VertexInputBindingDescription>,
+        Vec<VertexInputAttributeDescription>,
+    ),
+    pipeline_input_assembly: PrimitiveTopology,
+    pipeline_tesselation: u32,
+    pipeline_viewport: (Vec<Viewport>, Vec<Rect2D>),
+    pipeline_rasterization: (PolygonMode, CullModeFlags),
+    pipeline_multisample: SampleCountFlags,
+    pipeline_depthstencil: (DepthInfo, StencilInfo),
+    pipeline_colorblend: Vec<PipelineColorBlendAttachmentState>,
+    pipeline_dynamic: Vec<DynamicState>,
+    pipeline_layout: (Vec<DescriptorSetLayoutBinding>, Vec<PushConstantRange>),
+    pipeline_renderpass: (
+        Vec<AttachmentDescription>,
+        Vec<SubpassDescription>,
+        Vec<SubpassDependency>,
+    ),
+}
+
+impl VKUPipelineBuilder {
+    pub fn build(self, device: &Device) -> Result<VKUPipeline, Error> {
+        let (bindings, attribs) = self.pipeline_vertex_input;
+        let pipeline_vertex_input = PipelineVertexInputStateCreateInfo::builder()
+            .vertex_binding_descriptions(&bindings)
+            .vertex_attribute_descriptions(&attribs)
+            .build();
+
+        let topology = self.pipeline_input_assembly;
+        let pipeline_input_assembly = PipelineInputAssemblyStateCreateInfo::builder()
+            .topology(topology)
+            .build();
+
+        let patch_control_points = self.pipeline_tesselation;
+        let pipeline_tesselation = PipelineTessellationStateCreateInfo::builder()
+            .patch_control_points(patch_control_points)
+            .build();
+
+        let (viewports, scissors) = self.pipeline_viewport;
+        let pipeline_viewport = PipelineViewportStateCreateInfo::builder()
+            .viewports(&viewports)
+            .scissors(&scissors)
+            .build();
+
+        let (polygon_mode, cull_mode) = self.pipeline_rasterization;
+        let pipeline_rasterization = PipelineRasterizationStateCreateInfo::builder()
+            .rasterizer_discard_enable(true)
+            .polygon_mode(polygon_mode)
+            .cull_mode(cull_mode)
+            .front_face(FrontFace::COUNTER_CLOCKWISE)
+            .build();
+
+        let samples = self.pipeline_multisample;
+        let pipeline_multisample = PipelineMultisampleStateCreateInfo::builder()
+            .sample_shading_enable(true)
+            .rasterization_samples(samples)
+            .build();
+
+        let (depth_info, stencil_info) = self.pipeline_depthstencil;
+        let pipeline_depthstencil = PipelineDepthStencilStateCreateInfo::builder()
+            .depth_test_enable(depth_info.test)
+            .depth_write_enable(depth_info.write)
+            .depth_compare_op(depth_info.comp_op)
+            .min_depth_bounds(depth_info.min_depth)
+            .max_depth_bounds(depth_info.max_depth)
+            .stencil_test_enable(stencil_info.test)
+            .front(stencil_info.front)
+            .back(stencil_info.back)
+            .build();
+
+        let attachments = self.pipeline_colorblend;
+        let pipeline_colorblend = PipelineColorBlendStateCreateInfo::builder()
+            .logic_op_enable(true)
+            .attachments(&attachments)
+            .build();
+
+        let dynamic_states = self.pipeline_dynamic;
+        let pipeline_dynamic = PipelineDynamicStateCreateInfo::builder()
+            .dynamic_states(&dynamic_states)
+            .build();
+
+        let spec_infos: Vec<SpecializationInfo> = self
+            .pipeline_stages
+            .iter()
+            .map(|(_, _, data, map_entries)| {
+                SpecializationInfo::builder()
+                    .map_entries(map_entries)
+                    .data(data)
+                    .build()
+            })
+            .collect();
+
+        let pipeline_stages: Vec<PipelineShaderStageCreateInfo> = self
+            .pipeline_stages
+            .iter()
+            .zip(spec_infos.iter())
+            .map(|((stage, module, _, _), info)| {
+                PipelineShaderStageCreateInfo::builder()
+                    .stage(*stage)
+                    .module(*module)
+                    .specialization_info(info)
+                    .name(CStr::from_bytes_with_nul(b"main\0").unwrap())
+                    .build()
+            })
+            .collect();
+
+        let (bindings, push_constant_ranges) = self.pipeline_layout;
+        let set_layouts = {
+            let create_info = DescriptorSetLayoutCreateInfo::builder()
+                .bindings(&bindings)
+                .build();
+
+            unsafe { vec![device.create_descriptor_set_layout(&create_info, None)?] }
+        };
+
+        let layout = {
+            let create_info = PipelineLayoutCreateInfo::builder()
+                .set_layouts(&set_layouts)
+                .push_constant_ranges(&push_constant_ranges)
+                .build();
+
+            unsafe { device.create_pipeline_layout(&create_info, None)? }
+        };
+
+        let (attachments, subpasses, dependencies) = self.pipeline_renderpass;
+        let renderpass = {
+            let create_info = RenderPassCreateInfo::builder()
+                .attachments(&attachments)
+                .subpasses(&subpasses)
+                .dependencies(&dependencies)
+                .build();
+
+            unsafe { device.create_render_pass(&create_info, None)? }
+        };
+
+        let pipeline_create_info = GraphicsPipelineCreateInfo::builder()
+            .vertex_input_state(&pipeline_vertex_input)
+            .input_assembly_state(&pipeline_input_assembly)
+            .tessellation_state(&pipeline_tesselation)
+            .viewport_state(&pipeline_viewport)
+            .rasterization_state(&pipeline_rasterization)
+            .multisample_state(&pipeline_multisample)
+            .depth_stencil_state(&pipeline_depthstencil)
+            .color_blend_state(&pipeline_colorblend)
+            .dynamic_state(&pipeline_dynamic)
+            .stages(&pipeline_stages)
+            .layout(layout)
+            .render_pass(renderpass)
+            .subpass(0)
+            .build();
+
+        let pipeline = unsafe { Self::create_pipeline(device, &[pipeline_create_info])? };
+
+        Ok(VKUPipeline {
+            set_layout: set_layouts[0],
+            layout,
+            pipeline,
+            renderpass,
+        })
+    }
+
+    pub fn push_shader_stage(
+        mut self,
+        device: &Device,
+        stage: ShaderStageFlags,
+        path: impl AsRef<Path>,
+        spec_constants: &[u32],
+    ) -> Self {
+        let module = {
+            let mut file = match std::fs::File::open(path.as_ref()) {
+                Ok(file) => file,
+                Err(e) => panic!(
+                    "failed to open file at {:?}. Reason: {:?}",
+                    path.as_ref(),
+                    e
+                ),
+            };
+
+            let spirv = match read_spv(&mut file) {
+                Ok(spirv) => spirv,
+                Err(e) => panic!("failed to read spirv from opened file. Reason: {e}"),
+            };
+
+            let create_info = ShaderModuleCreateInfo::builder()
+                .flags(ShaderModuleCreateFlags::empty())
+                .code(&spirv)
+                .build();
+
+            unsafe {
+                match device.create_shader_module(&create_info, None) {
+                    Ok(shader_module) => shader_module,
+                    Err(e) => panic!("failed to create shader module from spirv. Reason: {e}"),
+                }
+            }
+        };
+
+        let map_entries: Vec<SpecializationMapEntry> = spec_constants
+            .iter()
+            .enumerate()
+            .map(|(index, _)| SpecializationMapEntry {
+                constant_id: index as u32,
+                offset: (index * size_of::<u32>()) as u32,
+                size: size_of::<u32>(),
+            })
+            .collect();
+
+        let data: Vec<u8> = spec_constants
+            .iter()
+            .flat_map(|c| c.to_ne_bytes())
+            .collect();
+
+        self.pipeline_stages
+            .push((stage, module, data, map_entries));
+        self
+    }
+
+    pub fn with_render_pass(
+        mut self,
+        attachments: &[AttachmentDescription],
+        subpasses: &[SubpassDescription],
+        dependecies: &[SubpassDependency],
+    ) -> Self {
+        self.pipeline_renderpass = (
+            attachments.to_vec(),
+            subpasses.to_vec(),
+            dependecies.to_vec(),
+        );
+        self
+    }
+
+    pub fn with_rasterization(
+        mut self,
+        polygon_mode: PolygonMode,
+        cull_mode: CullModeFlags,
+    ) -> Self {
+        self.pipeline_rasterization = (polygon_mode, cull_mode);
+        self
+    }
+
+    pub fn with_tesselation(mut self, patch_control_points: u32) -> Self {
+        self.pipeline_tesselation = patch_control_points;
+        self
+    }
+
+    pub fn with_viewports_scissors(mut self, viewports: &[Viewport], scissors: &[Rect2D]) -> Self {
+        self.pipeline_viewport = (viewports.to_vec(), scissors.to_vec());
+        self
+    }
+
+    pub fn with_multisample(mut self, samples: SampleCountFlags) -> Self {
+        self.pipeline_multisample = samples;
+        self
+    }
+
+    pub fn with_depthstencil(mut self, depth: DepthInfo, stencil: StencilInfo) -> Self {
+        self.pipeline_depthstencil = (depth, stencil);
+        self
+    }
+
+    pub fn with_colorblends(mut self, blend_modes: &[BlendMode]) -> Self {
+        let attachments: Vec<PipelineColorBlendAttachmentState> = blend_modes
+            .iter()
+            .map(|mode| PipelineColorBlendAttachmentState::from(*mode))
+            .collect();
+
+        self.pipeline_colorblend = attachments;
+        self
+    }
+
+    pub fn with_dynamic(mut self, dynamic_states: &[DynamicState]) -> Self {
+        self.pipeline_dynamic = dynamic_states.to_vec();
+        self
+    }
+
+    pub fn with_vertex<V: VertexConvert>(mut self, primitive_topology: PrimitiveTopology) -> Self {
+        self.pipeline_vertex_input = (V::binding_desc().to_vec(), V::attrib_desc().to_vec());
+        self.pipeline_input_assembly = primitive_topology;
+        self
+    }
+
+    pub fn with_push_constants<P>(mut self) -> Self {
+        let size_of = size_of::<P>();
+        let push_constants_range = PushConstantRange::builder()
+            .offset(0)
+            .size(size_of as u32)
+            .stage_flags(ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT)
+            .build();
+
+        self.pipeline_layout.1 = vec![push_constants_range];
+        self
+    }
+
+    pub fn with_descriptors(
+        mut self,
+        descriptors: &[(DescriptorType, ShaderStageFlags, u32)],
+    ) -> Self {
+        let desc_set_layout_bindings: Vec<DescriptorSetLayoutBinding> = descriptors
+            .iter()
+            .enumerate()
+            .map(|(index, (ty, stages, count))| {
+                DescriptorSetLayoutBinding::builder()
+                    .descriptor_count(*count)
+                    .binding(index as u32)
+                    .descriptor_type(*ty)
+                    .stage_flags(*stages)
+                    .build()
+            })
+            .collect();
+
+        self.pipeline_layout.0 = desc_set_layout_bindings;
+        self
+    }
+
+    unsafe fn create_pipeline(
+        device: &Device,
+        create_infos: &[GraphicsPipelineCreateInfo],
+    ) -> Result<Pipeline, Error> {
+        match device.create_graphics_pipelines(PipelineCache::null(), create_infos, None) {
+            Ok(pipeline) => Ok(pipeline[0]),
+            Err(e) => Err(Error::VkError(e.1)),
+        }
+    }
+}
+
 pub struct DepthInfo {
     pub test: bool,
     pub write: bool,
@@ -100,347 +456,5 @@ impl From<BlendMode> for PipelineColorBlendAttachmentState {
                 .dst_alpha_blend_factor(BlendFactor::ONE)
                 .build(),
         }
-    }
-}
-
-pub struct VKUPipeline {
-    pub desc_set_layout: DescriptorSetLayout,
-    pub layout: PipelineLayout,
-    pub pipeline: Pipeline,
-    pub renderpass: RenderPass,
-}
-
-impl VKUPipeline {
-    pub fn builder() -> VKUPipelineBuilder {
-        VKUPipelineBuilder::default()
-    }
-
-    pub fn destroy(&mut self, device: &Device) -> Result<(), Error> {
-        unsafe {
-            device.destroy_descriptor_set_layout(self.desc_set_layout, None);
-            device.destroy_pipeline_layout(self.layout, None);
-            device.destroy_pipeline(self.pipeline, None);
-            device.destroy_render_pass(self.renderpass, None);
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Default)]
-pub struct VKUPipelineBuilder {
-    layout_push_constants_range: PushConstantRange,
-    layout_desc_set_layout_bindings: Vec<DescriptorSetLayoutBinding>,
-
-    renderpass_attachments: Vec<Vec<AttachmentDescription>>,
-    renderpass_subpasses: Vec<Vec<SubpassDescription>>,
-    renderpass_dependencies: Vec<Vec<SubpassDependency>>,
-
-    pipeline_stages: Vec<PipelineShaderStageCreateInfo>,
-    pipeline_vertex_input: PipelineVertexInputStateCreateInfo,
-    pipeline_input_assembly: PipelineInputAssemblyStateCreateInfo,
-    pipeline_tesselation: PipelineTessellationStateCreateInfo,
-    pipeline_viewport: PipelineViewportStateCreateInfo,
-    pipeline_rasterization: PipelineRasterizationStateCreateInfo,
-    pipeline_multisample: PipelineMultisampleStateCreateInfo,
-    pipeline_depthstencil: PipelineDepthStencilStateCreateInfo,
-    pipeline_colorblend: PipelineColorBlendStateCreateInfo,
-    pipeline_dynamic: PipelineDynamicStateCreateInfo,
-}
-
-impl VKUPipelineBuilder {
-    pub fn build(self, device: &Device) -> Result<VKUPipeline, Error> {
-        let desc_set_layout_create_info = DescriptorSetLayoutCreateInfo::builder()
-            .flags(DescriptorSetLayoutCreateFlags::empty())
-            .bindings(&self.layout_desc_set_layout_bindings)
-            .build();
-
-        let desc_set_layout =
-            unsafe { device.create_descriptor_set_layout(&desc_set_layout_create_info, None)? };
-
-        let layout_create_info = PipelineLayoutCreateInfo::builder()
-            .push_constant_ranges(&[self.layout_push_constants_range])
-            .set_layouts(&[desc_set_layout])
-            .build();
-
-        let layout = unsafe { device.create_pipeline_layout(&layout_create_info, None)? };
-
-        assert!(self.renderpass_attachments.len() == self.renderpass_subpasses.len());
-        assert!(self.renderpass_subpasses.len() == self.renderpass_dependencies.len());
-
-        let renderpass_create_infos: Vec<RenderPassCreateInfo> = self
-            .renderpass_attachments
-            .iter()
-            .zip(self.renderpass_subpasses.iter())
-            .zip(self.renderpass_dependencies.iter())
-            .map(|((attachments, subpasses), dependencies)| {
-                RenderPassCreateInfo::builder()
-                    .attachments(attachments)
-                    .subpasses(subpasses)
-                    .dependencies(dependencies)
-                    .build()
-            })
-            .collect();
-
-        let renderpass: RenderPass =
-            unsafe { Self::create_render_passes(device, &renderpass_create_infos)?[0] };
-
-        let pipeline_create_info = GraphicsPipelineCreateInfo::builder()
-            .stages(&self.pipeline_stages)
-            .vertex_input_state(&self.pipeline_vertex_input)
-            .input_assembly_state(&self.pipeline_input_assembly)
-            .tessellation_state(&self.pipeline_tesselation)
-            .viewport_state(&self.pipeline_viewport)
-            .rasterization_state(&self.pipeline_rasterization)
-            .multisample_state(&self.pipeline_multisample)
-            .depth_stencil_state(&self.pipeline_depthstencil)
-            .color_blend_state(&self.pipeline_colorblend)
-            .dynamic_state(&self.pipeline_dynamic)
-            .layout(layout)
-            .render_pass(renderpass)
-            .subpass(0)
-            .build();
-
-        let pipeline = unsafe { Self::create_pipeline(device, &[pipeline_create_info])? };
-
-        Ok(VKUPipeline {
-            desc_set_layout,
-            layout,
-            pipeline,
-            renderpass,
-        })
-    }
-
-    pub fn push_shader_stage(
-        mut self,
-        device: &Device,
-        stage: ShaderStageFlags,
-        path: impl AsRef<Path>,
-        spec_constants: &[u32],
-    ) -> Self {
-        let shader_module = {
-            let mut file = match std::fs::File::open(path.as_ref()) {
-                Ok(file) => file,
-                Err(e) => panic!(
-                    "failed to open file at {:?}. Reason: {:?}",
-                    path.as_ref(),
-                    e
-                ),
-            };
-
-            let spirv = match read_spv(&mut file) {
-                Ok(spirv) => spirv,
-                Err(e) => panic!("failed to read spirv from opened file. Reason: {e}"),
-            };
-
-            let create_info = ShaderModuleCreateInfo::builder()
-                .flags(ShaderModuleCreateFlags::empty())
-                .code(&spirv)
-                .build();
-
-            unsafe {
-                match device.create_shader_module(&create_info, None) {
-                    Ok(shader_module) => shader_module,
-                    Err(e) => panic!("failed to create shader module from spirv. Reason: {e}"),
-                }
-            }
-        };
-
-        let map_entries: Vec<SpecializationMapEntry> = spec_constants
-            .iter()
-            .enumerate()
-            .map(|(index, _)| SpecializationMapEntry {
-                constant_id: index as u32,
-                offset: (index * size_of::<u32>()) as u32,
-                size: size_of::<u32>(),
-            })
-            .collect();
-
-        let bytes: Vec<u8> = spec_constants
-            .iter()
-            .flat_map(|c| c.to_ne_bytes())
-            .collect();
-
-        let spec_info = SpecializationInfo::builder()
-            .map_entries(&map_entries)
-            .data(&bytes)
-            .build();
-
-        let shader_stage_create_info = PipelineShaderStageCreateInfo::builder()
-            .stage(stage)
-            .module(shader_module)
-            .name(CStr::from_bytes_with_nul(b"main\0").unwrap())
-            .specialization_info(&spec_info)
-            .build();
-
-        self.pipeline_stages.push(shader_stage_create_info);
-        self
-    }
-
-    pub fn push_render_pass(
-        mut self,
-        attachments: &[AttachmentDescription],
-        subpasses: &[SubpassDescription],
-        dependecies: &[SubpassDependency],
-    ) -> Self {
-        self.renderpass_attachments.push(attachments.to_vec());
-        self.renderpass_subpasses.push(subpasses.to_vec());
-        self.renderpass_dependencies.push(dependecies.to_vec());
-        self
-    }
-
-    pub fn with_rasterization(
-        mut self,
-        polygon_mode: PolygonMode,
-        cull_mode: CullModeFlags,
-    ) -> Self {
-        let rasterization = PipelineRasterizationStateCreateInfo::builder()
-            .rasterizer_discard_enable(true)
-            .front_face(FrontFace::COUNTER_CLOCKWISE)
-            .polygon_mode(polygon_mode)
-            .cull_mode(cull_mode)
-            .build();
-
-        self.pipeline_rasterization = rasterization;
-        self
-    }
-
-    pub fn with_tesselation(mut self, patch_control_points: u32) -> Self {
-        let tesselation = PipelineTessellationStateCreateInfo::builder()
-            .patch_control_points(patch_control_points)
-            .build();
-
-        self.pipeline_tesselation = tesselation;
-        self
-    }
-
-    pub fn with_viewport(mut self, viewports: &[Viewport]) -> Self {
-        let viewport = PipelineViewportStateCreateInfo::builder()
-            .viewports(viewports)
-            .build();
-
-        self.pipeline_viewport = viewport;
-        self
-    }
-
-    pub fn with_multisample(mut self, samples: SampleCountFlags) -> Self {
-        let multisample = PipelineMultisampleStateCreateInfo::builder()
-            .sample_shading_enable(true)
-            .rasterization_samples(samples)
-            .build();
-
-        self.pipeline_multisample = multisample;
-        self
-    }
-
-    pub fn with_depthstencil(mut self, depth: DepthInfo, stencil: StencilInfo) -> Self {
-        let depthstencil = PipelineDepthStencilStateCreateInfo::builder()
-            .depth_test_enable(depth.test)
-            .depth_write_enable(depth.write)
-            .depth_compare_op(depth.comp_op)
-            .min_depth_bounds(depth.min_depth)
-            .max_depth_bounds(depth.max_depth)
-            .stencil_test_enable(stencil.test)
-            .front(stencil.front)
-            .back(stencil.back)
-            .build();
-
-        self.pipeline_depthstencil = depthstencil;
-        self
-    }
-
-    pub fn with_colorblends(mut self, blend_modes: &[BlendMode]) -> Self {
-        let attachments: Vec<PipelineColorBlendAttachmentState> = blend_modes
-            .iter()
-            .map(|mode| PipelineColorBlendAttachmentState::from(*mode))
-            .collect();
-
-        let colorblend = PipelineColorBlendStateCreateInfo::builder()
-            .logic_op_enable(true)
-            .attachments(&attachments)
-            .build();
-
-        self.pipeline_colorblend = colorblend;
-        self
-    }
-
-    pub fn with_dynamic(mut self, dynamic_states: &[DynamicState]) -> Self {
-        let dynamic = PipelineDynamicStateCreateInfo::builder()
-            .dynamic_states(dynamic_states)
-            .build();
-
-        self.pipeline_dynamic = dynamic;
-        self
-    }
-
-    pub fn with_vertex<V: VertexConvert>(mut self, primitive_topology: PrimitiveTopology) -> Self {
-        let pipeline_vertex_input = PipelineVertexInputStateCreateInfo::builder()
-            .vertex_binding_descriptions(V::binding_desc())
-            .vertex_attribute_descriptions(V::attrib_desc())
-            .build();
-
-        let pipeline_input_assembly = PipelineInputAssemblyStateCreateInfo::builder()
-            .topology(primitive_topology)
-            .build();
-
-        self.pipeline_vertex_input = pipeline_vertex_input;
-        self.pipeline_input_assembly = pipeline_input_assembly;
-        self
-    }
-
-    pub fn with_push_constants<P>(mut self) -> Self {
-        let size_of = size_of::<P>();
-        let push_constants_range = PushConstantRange::builder()
-            .offset(0)
-            .size(size_of as u32)
-            .stage_flags(ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT)
-            .build();
-
-        self.layout_push_constants_range = push_constants_range;
-        self
-    }
-
-    pub fn with_descriptors(
-        mut self,
-        descriptors: &[(DescriptorType, ShaderStageFlags, u32)],
-    ) -> Self {
-        let desc_set_layout_bindings: Vec<DescriptorSetLayoutBinding> = descriptors
-            .iter()
-            .enumerate()
-            .map(|(index, (ty, stages, count))| {
-                DescriptorSetLayoutBinding::builder()
-                    .descriptor_count(*count)
-                    .binding(index as u32)
-                    .descriptor_type(*ty)
-                    .stage_flags(*stages)
-                    .build()
-            })
-            .collect();
-
-        self.layout_desc_set_layout_bindings = desc_set_layout_bindings;
-        self
-    }
-
-    unsafe fn create_pipeline(
-        device: &Device,
-        create_infos: &[GraphicsPipelineCreateInfo],
-    ) -> Result<Pipeline, Error> {
-        match device.create_graphics_pipelines(PipelineCache::null(), create_infos, None) {
-            Ok(pipeline) => Ok(pipeline[0]),
-            Err(e) => Err(Error::VkError(e.1)),
-        }
-    }
-
-    unsafe fn create_render_passes(
-        device: &Device,
-        render_pass_create_infos: &[RenderPassCreateInfo],
-    ) -> Result<Vec<RenderPass>, Error> {
-        render_pass_create_infos
-            .iter()
-            .map(|info| match device.create_render_pass(info, None) {
-                Ok(render_pass) => Ok(render_pass),
-                Err(e) => Err(Error::VkError(e)),
-            })
-            .collect()
     }
 }

@@ -86,14 +86,14 @@ mod tests {
 
         let _pipeline = VKUPipeline::builder()
             .with_vertex::<Vertex2D>(PrimitiveTopology::TRIANGLE_LIST)
-            .with_push_constants::<Push>()
             .with_tesselation(1)
-            .with_viewport(&[Viewport::default()]) // using dynamic viewport later
+            .with_viewports_scissors(&[Viewport::default()], &[Rect2D::default()]) // using dynamic viewport/scissor later
             .with_rasterization(PolygonMode::FILL, CullModeFlags::BACK)
             .with_multisample(SampleCountFlags::TYPE_1)
             .with_depthstencil(DepthInfo::enabled_positive_depth(), StencilInfo::default())
             .with_colorblends(&[BlendMode::TraditionalTransparency])
             .with_dynamic(&[DynamicState::VIEWPORT, DynamicState::SCISSOR])
+            .with_push_constants::<Push>()
             .with_descriptors(&[(
                 DescriptorType::COMBINED_IMAGE_SAMPLER,
                 ShaderStageFlags::FRAGMENT,
@@ -111,7 +111,7 @@ mod tests {
                 "./tests/default.frag.spv",
                 &[],
             )
-            .push_render_pass(
+            .with_render_pass(
                 &[
                     AttachmentDescription::builder()
                         .format(Format::R8G8B8A8_UNORM)
