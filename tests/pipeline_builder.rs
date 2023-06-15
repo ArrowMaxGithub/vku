@@ -14,16 +14,16 @@ mod tests {
     }
 
     impl VertexConvert for Vertex2D {
-        fn binding_desc() -> &'static [VertexInputBindingDescription] {
-            &[VertexInputBindingDescription {
+        fn binding_desc() -> Vec<VertexInputBindingDescription> {
+            vec![VertexInputBindingDescription {
                 stride: size_of::<Self>() as u32,
                 input_rate: VertexInputRate::VERTEX,
                 binding: 0,
             }]
         }
 
-        fn attrib_desc() -> &'static [VertexInputAttributeDescription] {
-            &[
+        fn attrib_desc() -> Vec<VertexInputAttributeDescription> {
+            vec![
                 VertexInputAttributeDescription {
                     binding: 0,
                     location: 0,

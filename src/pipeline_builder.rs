@@ -1,7 +1,7 @@
 use ash::util::read_spv;
 use ash::vk::*;
 use ash::Device;
-use std::ffi::CStr;
+use std::ffi::CString;
 use std::mem::size_of;
 use std::path::Path;
 use std::result::Result;
@@ -86,15 +86,14 @@ impl VKUPipelineBuilder {
 
         let (polygon_mode, cull_mode) = self.pipeline_rasterization;
         let pipeline_rasterization = PipelineRasterizationStateCreateInfo::builder()
-            .rasterizer_discard_enable(true)
             .polygon_mode(polygon_mode)
             .cull_mode(cull_mode)
             .front_face(FrontFace::COUNTER_CLOCKWISE)
+            .line_width(1.0)
             .build();
 
         let samples = self.pipeline_multisample;
         let pipeline_multisample = PipelineMultisampleStateCreateInfo::builder()
-            .sample_shading_enable(true)
             .rasterization_samples(samples)
             .build();
 
@@ -112,7 +111,6 @@ impl VKUPipelineBuilder {
 
         let attachments = self.pipeline_colorblend;
         let pipeline_colorblend = PipelineColorBlendStateCreateInfo::builder()
-            .logic_op_enable(true)
             .attachments(&attachments)
             .build();
 
@@ -132,6 +130,7 @@ impl VKUPipelineBuilder {
             })
             .collect();
 
+        let entry_name = CString::new("main").unwrap();
         let pipeline_stages: Vec<PipelineShaderStageCreateInfo> = self
             .pipeline_stages
             .iter()
@@ -141,7 +140,7 @@ impl VKUPipelineBuilder {
                     .stage(*stage)
                     .module(*module)
                     .specialization_info(info)
-                    .name(CStr::from_bytes_with_nul(b"main\0").unwrap())
+                    .name(&entry_name)
                     .build()
             })
             .collect();
@@ -193,7 +192,7 @@ impl VKUPipelineBuilder {
 
         let pipeline = unsafe { Self::create_pipeline(device, &[pipeline_create_info])? };
 
-        for (_, module, _, _) in self.pipeline_stages{
+        for (_, module, _, _) in self.pipeline_stages {
             unsafe { device.destroy_shader_module(module, None) }
         }
 
@@ -319,7 +318,7 @@ impl VKUPipelineBuilder {
     }
 
     pub fn with_vertex<V: VertexConvert>(mut self, primitive_topology: PrimitiveTopology) -> Self {
-        self.pipeline_vertex_input = (V::binding_desc().to_vec(), V::attrib_desc().to_vec());
+        self.pipeline_vertex_input = (V::binding_desc(), V::attrib_desc());
         self.pipeline_input_assembly = primitive_topology;
         self
     }
@@ -394,7 +393,7 @@ impl DepthInfo {
             test: true,
             write: true,
             comp_op: CompareOp::LESS_OR_EQUAL,
-            min_depth: 0.0,
+            min_depth: -1.0,
             max_depth: 1.0,
         }
     }
@@ -418,8 +417,18 @@ impl Default for StencilInfo {
 
 /// Trait for client code to convert vertex struct to [VertexInputBindingDescription] and [VertexInputAttributeDescription].
 pub trait VertexConvert {
-    fn binding_desc() -> &'static [VertexInputBindingDescription];
-    fn attrib_desc() -> &'static [VertexInputAttributeDescription];
+    fn binding_desc() -> Vec<VertexInputBindingDescription>;
+    fn attrib_desc() -> Vec<VertexInputAttributeDescription>;
+}
+
+impl VertexConvert for () {
+    fn binding_desc() -> Vec<VertexInputBindingDescription> {
+        vec![]
+    }
+
+    fn attrib_desc() -> Vec<VertexInputAttributeDescription> {
+        vec![]
+    }
 }
 
 /// Shortcut to generate [PipelineColorBlendAttachmentState] for common blend modes.
