@@ -193,6 +193,10 @@ impl VKUPipelineBuilder {
 
         let pipeline = unsafe { Self::create_pipeline(device, &[pipeline_create_info])? };
 
+        for (_, module, _, _) in self.pipeline_stages{
+            unsafe { device.destroy_shader_module(module, None) }
+        }
+
         Ok(VKUPipeline {
             set_layout: set_layouts[0],
             layout,
