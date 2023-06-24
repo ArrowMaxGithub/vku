@@ -3,6 +3,7 @@
 - Changed: Moved examples to separate crate: `vku-examples`.
 - Changed: Switched to vma crate for VMA implementation.
 - Added: More layout transitions, render texture creation helper.
+- Added: PipelineBuilder - see [integration test](tests/pipeline_builder.rs) for an example. 
 
 ### [0.1.2] Build script fix
 

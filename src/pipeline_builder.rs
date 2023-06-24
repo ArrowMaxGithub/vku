@@ -7,6 +7,7 @@ use std::path::Path;
 use std::result::Result;
 
 use crate::Error;
+use crate::VkInit;
 
 pub struct VKUPipeline {
     pub set_layout: DescriptorSetLayout,
@@ -61,7 +62,7 @@ pub struct VKUPipelineBuilder {
 }
 
 impl VKUPipelineBuilder {
-    pub fn build(self, device: &Device) -> Result<VKUPipeline, Error> {
+    pub fn build(self, vk_init: &VkInit, base_name: &str) -> Result<VKUPipeline, Error> {
         let (bindings, attribs) = self.pipeline_vertex_input;
         let pipeline_vertex_input = PipelineVertexInputStateCreateInfo::builder()
             .vertex_binding_descriptions(&bindings)
@@ -151,7 +152,7 @@ impl VKUPipelineBuilder {
                 .bindings(&bindings)
                 .build();
 
-            unsafe { vec![device.create_descriptor_set_layout(&create_info, None)?] }
+            unsafe { vec![vk_init.device.create_descriptor_set_layout(&create_info, None)?] }
         };
 
         let layout = {
@@ -160,7 +161,7 @@ impl VKUPipelineBuilder {
                 .push_constant_ranges(&push_constant_ranges)
                 .build();
 
-            unsafe { device.create_pipeline_layout(&create_info, None)? }
+            unsafe { vk_init.device.create_pipeline_layout(&create_info, None)? }
         };
 
         let (attachments, subpasses, dependencies) = self.pipeline_renderpass;
@@ -171,7 +172,7 @@ impl VKUPipelineBuilder {
                 .dependencies(&dependencies)
                 .build();
 
-            unsafe { device.create_render_pass(&create_info, None)? }
+            unsafe { vk_init.device.create_render_pass(&create_info, None)? }
         };
 
         let pipeline_create_info = GraphicsPipelineCreateInfo::builder()
@@ -190,11 +191,16 @@ impl VKUPipelineBuilder {
             .subpass(0)
             .build();
 
-        let pipeline = unsafe { Self::create_pipeline(device, &[pipeline_create_info])? };
+        let pipeline = unsafe { Self::create_pipeline(vk_init, &[pipeline_create_info])? };
 
         for (_, module, _, _) in self.pipeline_stages {
-            unsafe { device.destroy_shader_module(module, None) }
+            unsafe { vk_init.device.destroy_shader_module(module, None) }
         }
+
+        vk_init.set_debug_object_name(set_layouts[0].as_raw(), ObjectType::DESCRIPTOR_SET_LAYOUT, format!("{base_name}_Desc_Set_Layout"))?;
+        vk_init.set_debug_object_name(layout.as_raw(), ObjectType::PIPELINE_LAYOUT, format!("{base_name}_Pipeline_Layout"))?;
+        vk_init.set_debug_object_name(pipeline.as_raw(), ObjectType::PIPELINE, format!("{base_name}_Pipeline"))?;
+        vk_init.set_debug_object_name(renderpass.as_raw(), ObjectType::RENDER_PASS, format!("{base_name}_Renderpass"))?;
 
         Ok(VKUPipeline {
             set_layout: set_layouts[0],
@@ -357,10 +363,10 @@ impl VKUPipelineBuilder {
     }
 
     unsafe fn create_pipeline(
-        device: &Device,
+        vk_init: &VkInit,
         create_infos: &[GraphicsPipelineCreateInfo],
     ) -> Result<Pipeline, Error> {
-        match device.create_graphics_pipelines(PipelineCache::null(), create_infos, None) {
+        match vk_init.device.create_graphics_pipelines(PipelineCache::null(), create_infos, None) {
             Ok(pipeline) => Ok(pipeline[0]),
             Err(e) => Err(Error::VkError(e.1)),
         }

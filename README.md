@@ -1,7 +1,7 @@
 # VKU
-Work in progress utility crate for kickstarting vulkan development with [shaderc](https://docs.rs/shaderc/0.8.0/shaderc/index.html), [ash](https://docs.rs/ash/0.37.1+1.3.235/ash/index.html) and the [VMA](https://docs.rs/vma/0.3.0/vma/) allocator.
+Work in progress utility crate for kickstarting vulkan development with [shaderc](https://docs.rs/shaderc/), [ash](https://docs.rs/ash/) and the [VMA](https://docs.rs/vma/) allocator.
 
-Center module is [Vkinit](crate::init::VkInit), created from [RawHandles](https://docs.rs/raw-window-handle/0.5.0/raw_window_handle/index.html) and [VkInitCreateInfo](crate::create_info::VkInitCreateInfo).
+Center module is [Vkinit](crate::init::VkInit), created from [RawHandles](https://docs.rs/raw-window-handle/) and [VkInitCreateInfo](crate::create_info::VkInitCreateInfo).
 
 ## Warning
 This is mostly a personal utility crate and no guarentees are made in terms of stability until 1.0.0.

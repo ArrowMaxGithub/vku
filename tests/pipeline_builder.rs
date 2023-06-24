@@ -4,7 +4,7 @@ mod tests {
 
     use ash::vk::*;
     use vku::{BlendMode, DepthInfo, StencilInfo, VKUPipeline, VertexConvert, VkInit};
-    use winit::platform::wayland::EventLoopBuilderExtWayland;
+    use winit::platform::windows::EventLoopBuilderExtWindows;
 
     #[repr(C)]
     struct Vertex2D {
@@ -143,7 +143,7 @@ mod tests {
                     .build()],
                 &[],
             )
-            .build(&vk_init.device)
+            .build(&vk_init, "Default_Pipeline")
             .unwrap();
     }
 }
