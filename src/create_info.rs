@@ -3,10 +3,7 @@ use crate::imports::*;
 /// Creation parameters for [VkInit](crate::init::VkInit).
 ///
 /// Windowing extensions are enabled automatically depending on the chosen platform.
-///
-/// [Dynamic rendering](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_dynamic_rendering.html)
-/// and [Synchronization2](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_synchronization2.html)
-/// are enabled by default.
+
 pub struct VkInitCreateInfo {
     pub app_name: String,
     pub engine_name: String,
@@ -47,7 +44,12 @@ impl VkInitCreateInfo {
     /// - log level: all
     /// - log messages: all
     ///
-    /// Synchronization2, DynamicRendering, DescriptorIndexing and ShaderDrawParameters extensions enabled by default.
+    /// [DynamicRendering](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_dynamic_rendering.html),
+    /// [DescriptorIndexing](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_EXT_descriptor_indexing.html),
+    /// [ShaderDrawParameters](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_shader_draw_parameters.html),
+    /// and [Synchronization2](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_synchronization2.html)
+    /// are enabled by default.
+
     pub fn verbose_debug_vk_1_3() -> Self {
         Self {
             app_name: String::from("Default app name"),
@@ -105,8 +107,6 @@ impl VkInitCreateInfo {
     /// - best practices and synchronization checks enabled
     /// - log level: >= info
     /// - log messages: validation and performance
-    ///
-    /// Synchronization2 and dynamic rendering extensions enabled by default.
     pub fn debug_vk_1_3() -> Self {
         Self {
             log_level: DebugUtilsMessageSeverityFlagsEXT::INFO
@@ -121,8 +121,6 @@ impl VkInitCreateInfo {
     /// - synchronization checks enabled
     /// - log level: >= warn
     /// - log messages: validation and performance
-    ///
-    /// Synchronization2 and dynamic rendering extensions enabled by default.
     pub fn test_release_vk_1_3() -> Self {
         Self {
             log_level: DebugUtilsMessageSeverityFlagsEXT::WARNING,
@@ -133,8 +131,6 @@ impl VkInitCreateInfo {
     /// Suitable for final release builds against Vulkan 1.3:
     /// - no validation
     /// - no logging
-    ///
-    /// Synchronization2 and dynamic rendering extensions enabled by default.
     pub fn dist_vk_1_3() -> Self {
         Self {
             enable_validation: false,
@@ -148,7 +144,7 @@ impl VkInitCreateInfo {
 }
 
 impl Default for VkInitCreateInfo {
-    /// Default options are suitable for a debug build against Vulkan 1.3 with dynamic rendering and syncronization2 enabled.
+    /// Default options are suitable for a debug build against Vulkan 1.3.
     fn default() -> Self {
         Self::debug_vk_1_3()
     }

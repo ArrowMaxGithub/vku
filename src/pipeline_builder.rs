@@ -152,7 +152,11 @@ impl VKUPipelineBuilder {
                 .bindings(&bindings)
                 .build();
 
-            unsafe { vec![vk_init.device.create_descriptor_set_layout(&create_info, None)?] }
+            unsafe {
+                vec![vk_init
+                    .device
+                    .create_descriptor_set_layout(&create_info, None)?]
+            }
         };
 
         let layout = {
@@ -197,10 +201,26 @@ impl VKUPipelineBuilder {
             unsafe { vk_init.device.destroy_shader_module(module, None) }
         }
 
-        vk_init.set_debug_object_name(set_layouts[0].as_raw(), ObjectType::DESCRIPTOR_SET_LAYOUT, format!("{base_name}_Desc_Set_Layout"))?;
-        vk_init.set_debug_object_name(layout.as_raw(), ObjectType::PIPELINE_LAYOUT, format!("{base_name}_Pipeline_Layout"))?;
-        vk_init.set_debug_object_name(pipeline.as_raw(), ObjectType::PIPELINE, format!("{base_name}_Pipeline"))?;
-        vk_init.set_debug_object_name(renderpass.as_raw(), ObjectType::RENDER_PASS, format!("{base_name}_Renderpass"))?;
+        vk_init.set_debug_object_name(
+            set_layouts[0].as_raw(),
+            ObjectType::DESCRIPTOR_SET_LAYOUT,
+            format!("{base_name}_Desc_Set_Layout"),
+        )?;
+        vk_init.set_debug_object_name(
+            layout.as_raw(),
+            ObjectType::PIPELINE_LAYOUT,
+            format!("{base_name}_Pipeline_Layout"),
+        )?;
+        vk_init.set_debug_object_name(
+            pipeline.as_raw(),
+            ObjectType::PIPELINE,
+            format!("{base_name}_Pipeline"),
+        )?;
+        vk_init.set_debug_object_name(
+            renderpass.as_raw(),
+            ObjectType::RENDER_PASS,
+            format!("{base_name}_Renderpass"),
+        )?;
 
         Ok(VKUPipeline {
             set_layout: set_layouts[0],
@@ -366,7 +386,10 @@ impl VKUPipelineBuilder {
         vk_init: &VkInit,
         create_infos: &[GraphicsPipelineCreateInfo],
     ) -> Result<Pipeline, Error> {
-        match vk_init.device.create_graphics_pipelines(PipelineCache::null(), create_infos, None) {
+        match vk_init
+            .device
+            .create_graphics_pipelines(PipelineCache::null(), create_infos, None)
+        {
             Ok(pipeline) => Ok(pipeline[0]),
             Err(e) => Err(Error::VkError(e.1)),
         }
@@ -405,20 +428,11 @@ impl DepthInfo {
     }
 }
 
+#[derive(Default)]
 pub struct StencilInfo {
     pub test: bool,
     pub front: StencilOpState,
     pub back: StencilOpState,
-}
-
-impl Default for StencilInfo {
-    fn default() -> Self {
-        Self {
-            test: false,
-            front: Default::default(),
-            back: Default::default(),
-        }
-    }
 }
 
 /// Trait for client code to convert vertex struct to [VertexInputBindingDescription] and [VertexInputAttributeDescription].

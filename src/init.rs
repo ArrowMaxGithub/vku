@@ -34,6 +34,8 @@ pub struct VkInit {
     pub create_info: VkInitCreateInfo,
 }
 
+/// Wrapper around presentation resources.
+/// - Depth image
 pub struct Head {
     pub surface_loader: Surface,
     pub surface: SurfaceKHR,
@@ -1184,6 +1186,7 @@ impl VkInit {
         Ok(depth_image)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) unsafe fn create_head(
         device: &Device,
         allocator: &Allocator,

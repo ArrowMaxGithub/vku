@@ -3,7 +3,8 @@ mod tests {
     use std::mem::size_of;
 
     use ash::vk::*;
-    use vku::{BlendMode, DepthInfo, StencilInfo, VKUPipeline, VertexConvert, VkInit};
+    use vku::VkInit;
+    use vku::pipeline_builder::{BlendMode, DepthInfo, StencilInfo, VKUPipeline, VertexConvert};
     use winit::platform::windows::EventLoopBuilderExtWindows;
 
     #[repr(C)]
