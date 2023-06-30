@@ -285,6 +285,97 @@ impl VKUPipelineBuilder {
         self
     }
 
+    pub fn push_shader_stage_spirv(
+        mut self,
+        device: &Device,
+        stage: ShaderStageFlags,
+        spirv: &[u32],
+        spec_constants: &[u32],
+    ) -> Self {
+        let module = {
+            let create_info = ShaderModuleCreateInfo::builder()
+                .flags(ShaderModuleCreateFlags::empty())
+                .code(spirv)
+                .build();
+
+            unsafe {
+                match device.create_shader_module(&create_info, None) {
+                    Ok(shader_module) => shader_module,
+                    Err(e) => panic!("failed to create shader module from spirv. Reason: {e}"),
+                }
+            }
+        };
+
+        let map_entries: Vec<SpecializationMapEntry> = spec_constants
+            .iter()
+            .enumerate()
+            .map(|(index, _)| SpecializationMapEntry {
+                constant_id: index as u32,
+                offset: (index * size_of::<u32>()) as u32,
+                size: size_of::<u32>(),
+            })
+            .collect();
+
+        let data: Vec<u8> = spec_constants
+            .iter()
+            .flat_map(|c| c.to_ne_bytes())
+            .collect();
+
+        self.pipeline_stages
+            .push((stage, module, data, map_entries));
+        self
+    }
+
+    #[cfg(feature = "shader")]
+    pub fn push_shader_stage_glsl(
+        mut self,
+        device: &Device,
+        stage: ShaderStageFlags,
+        glsl: String,
+        spec_constants: &[u32],
+    ) -> Self {
+        let ext = match stage {
+            ShaderStageFlags::VERTEX => "vert",
+            ShaderStageFlags::FRAGMENT => "frag",
+            _ => panic!("unexpected shader stage flags"),
+        };
+
+        let compiled = crate::shader::shader_ad_hoc(glsl, "", ext, false).unwrap();
+
+        let module = {
+            let create_info = ShaderModuleCreateInfo::builder()
+                .flags(ShaderModuleCreateFlags::empty())
+                .code(compiled.as_binary())
+                .build();
+
+            unsafe {
+                match device.create_shader_module(&create_info, None) {
+                    Ok(shader_module) => shader_module,
+                    Err(e) => panic!("failed to create shader module from spirv. Reason: {e}"),
+                }
+            }
+        };
+
+        let map_entries: Vec<SpecializationMapEntry> = spec_constants
+            .iter()
+            .enumerate()
+            .map(|(index, _)| SpecializationMapEntry {
+                constant_id: index as u32,
+                offset: (index * size_of::<u32>()) as u32,
+                size: size_of::<u32>(),
+            })
+            .collect();
+
+        let data: Vec<u8> = spec_constants
+            .iter()
+            .flat_map(|c| c.to_ne_bytes())
+            .collect();
+
+        self.pipeline_stages
+            .push((stage, module, data, map_entries));
+        self
+    }
+
     pub fn with_render_pass(
         mut self,
         attachments: &[AttachmentDescription],

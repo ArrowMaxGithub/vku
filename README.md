@@ -1,3 +1,7 @@
+[<img alt="Crates.io" src="https://img.shields.io/crates/v/vku">](https://crates.io/crates/vku)
+[<img alt="docs.rs" src="https://img.shields.io/docsrs/vku">](https://docs.rs/vku/latest/vku/)
+<img alt="Crates.io" src="https://img.shields.io/crates/l/vku">
+
 # VKU
 Work in progress utility crate for kickstarting vulkan development with [shaderc](https://docs.rs/shaderc/), [ash](https://docs.rs/ash/) and the [VMA](https://docs.rs/vma/) allocator.
 

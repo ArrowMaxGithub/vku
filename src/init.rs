@@ -1,5 +1,6 @@
 use std::mem::ManuallyDrop;
 
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use vma::AllocatorCreateInfo;
 
 use crate::create_info::VkInitCreateInfo;
@@ -88,12 +89,7 @@ pub struct PhysicalDeviceInfo {
     pub compute_queue_family_index: Option<u32>,
     pub features: PhysicalDeviceFeatures,
     pub memory_props: PhysicalDeviceMemoryProperties,
-
-    pub max_work_group_dispatch: [u32; 3],
-    pub max_work_group_size: [u32; 3],
-    pub max_work_group_invocations: u32,
-    pub max_shared_memory_size: u32,
-    pub max_bound_descriptor_sets: u32,
+    pub limits: PhysicalDeviceLimits,
 }
 
 /// Return info about the created surface and its capabilities.
@@ -137,16 +133,22 @@ impl VkInit {
     /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), create_info).unwrap();
     /// ```
 
-    pub fn new(
-        display_handle: Option<&RawDisplayHandle>,
-        window_handle: Option<&RawWindowHandle>,
+    pub fn new<T: HasRawDisplayHandle + HasRawWindowHandle>(
+        raw_window_handles: Option<&T>,
         window_size: Option<[u32; 2]>,
         create_info: VkInitCreateInfo,
     ) -> Result<Self, Error> {
         unsafe {
+            let (display_h, window_h) = match raw_window_handles {
+                Some(handles) => (
+                    Some(handles.raw_display_handle()),
+                    Some(handles.raw_window_handle()),
+                ),
+                None => (None, None),
+            };
             let entry = ash::Entry::linked();
             let (instance, debug_loader, debug_messenger) =
-                Self::create_instance_and_debug(&entry, display_handle, &create_info)?;
+                Self::create_instance_and_debug(&entry, display_h, &create_info)?;
             let (physical_device, physical_device_info) =
                 Self::create_physical_device(&instance, &create_info)?;
             let device = Self::create_device(
@@ -160,7 +162,7 @@ impl VkInit {
                 Self::create_queues(&device, &physical_device_info)?;
 
             let head = if let (Some(display_handle), Some(window_handle), Some(window_size)) =
-                (display_handle, window_handle, window_size)
+                (display_h, window_h, window_size)
             {
                 Some(Self::create_head(
                     &device,
@@ -401,7 +403,6 @@ impl VkInit {
     }
 
     /// Creates a signaled fence.
-
     pub fn create_fence(&self) -> Result<Fence, Error> {
         let create_info = FenceCreateInfo::builder().flags(FenceCreateFlags::SIGNALED);
         let fence = unsafe { self.device.create_fence(&create_info, None)? };
@@ -410,7 +411,6 @@ impl VkInit {
     }
 
     /// Creates a Vec of signaled fence.
-
     pub fn create_fences(&self, count: usize) -> Result<Vec<Fence>, Error> {
         let mut fences = Vec::new();
         for _ in 0..count {
@@ -465,7 +465,6 @@ impl VkInit {
     }
 
     /// Acquires next image and signals sempahore ```acquire_img_semaphore```.
-
     pub fn acquire_next_swapchain_image(
         &self,
         acquire_img_semaphore: Semaphore,
@@ -732,7 +731,7 @@ impl VkInit {
 
     pub(crate) unsafe fn create_instance_and_debug(
         entry: &Entry,
-        display_handle: Option<&RawDisplayHandle>,
+        display_handle: Option<RawDisplayHandle>,
         create_info: &VkInitCreateInfo,
     ) -> Result<(Instance, Option<DebugUtils>, Option<DebugUtilsMessengerEXT>), Error> {
         let app_info = ApplicationInfo::builder()
@@ -742,7 +741,7 @@ impl VkInit {
             .api_version(create_info.vk_version);
 
         let mut extensions_names = match display_handle {
-            Some(handle) => ash_window::enumerate_required_extensions(*handle)?.to_vec(),
+            Some(handle) => ash_window::enumerate_required_extensions(handle)?.to_vec(),
             None => vec![],
         };
 
@@ -889,25 +888,8 @@ impl VkInit {
                     char_array_to_string(&pdevice_prop.device_name)?
                 );
 
-                trace!("Queue family indices: unified queue: {:?}, dedicated transfer: {:?} | dedicated compute: {:?}",
-                unified_queue_family_index, transfer_queue_family_index, compute_queue_family_index);
-
-                trace!(
-                    "Max_compute_work_group_count_xyz: {:?}",
-                    pdevice_prop.limits.max_compute_work_group_count
-                );
-                trace!(
-                    "Max_compute_work_group_size_xyz: {:?}",
-                    pdevice_prop.limits.max_compute_work_group_size
-                );
-                trace!(
-                    "Max_compute_work_group_invocations: {}",
-                    pdevice_prop.limits.max_compute_work_group_invocations
-                );
-                trace!(
-                    "Max_bound_descriptor_sets: {}",
-                    pdevice_prop.limits.max_bound_descriptor_sets
-                );
+                trace!("Physical device type: {:?}", pdevice_prop.device_type);
+                trace!("Physical device limits: {:?}", pdevice_prop.limits);
 
                 let features = instance.get_physical_device_features(physical_device);
                 let memory_props = instance.get_physical_device_memory_properties(physical_device);
@@ -919,14 +901,7 @@ impl VkInit {
                     compute_queue_family_index,
                     features,
                     memory_props,
-
-                    max_work_group_dispatch: pdevice_prop.limits.max_compute_work_group_count,
-                    max_work_group_size: pdevice_prop.limits.max_compute_work_group_size,
-                    max_work_group_invocations: pdevice_prop
-                        .limits
-                        .max_compute_work_group_invocations,
-                    max_shared_memory_size: pdevice_prop.limits.max_compute_shared_memory_size,
-                    max_bound_descriptor_sets: pdevice_prop.limits.max_bound_descriptor_sets,
+                    limits: pdevice_prop.limits,
                 };
 
                 return Ok((physical_device, physical_device_info));
@@ -1042,15 +1017,15 @@ impl VkInit {
     pub(crate) unsafe fn create_surface(
         entry: &Entry,
         instance: &Instance,
-        display_handle: &RawDisplayHandle,
-        window_handle: &RawWindowHandle,
+        display_handle: RawDisplayHandle,
+        window_handle: RawWindowHandle,
         window_size: [u32; 2],
         physical_device: &PhysicalDevice,
         create_info: &VkInitCreateInfo,
     ) -> Result<(Surface, SurfaceKHR, SurfaceInfo), Error> {
         let loader = Surface::new(entry, instance);
         let surface =
-            ash_window::create_surface(entry, instance, *display_handle, *window_handle, None)?;
+            ash_window::create_surface(entry, instance, display_handle, window_handle, None)?;
         let formats = loader.get_physical_device_surface_formats(*physical_device, surface)?;
 
         let color_format = *formats
@@ -1192,8 +1167,8 @@ impl VkInit {
         allocator: &Allocator,
         entry: &Entry,
         instance: &Instance,
-        display_handle: &RawDisplayHandle,
-        window_handle: &RawWindowHandle,
+        display_handle: RawDisplayHandle,
+        window_handle: RawWindowHandle,
         window_size: [u32; 2],
         physical_device: &PhysicalDevice,
         create_info: &VkInitCreateInfo,
@@ -1235,14 +1210,16 @@ impl VkInit {
         })
     }
 
-    pub fn change_present_mode(
+    pub fn change_present_mode<T: HasRawDisplayHandle + HasRawWindowHandle>(
         &mut self,
-        display_handle: &RawDisplayHandle,
-        window_handle: &RawWindowHandle,
+        raw_window_handles: T,
         window_size: [u32; 2],
         mode: PresentModeKHR,
     ) -> Result<(), Error> {
         unsafe {
+            let display_h = raw_window_handles.raw_display_handle();
+            let window_h = raw_window_handles.raw_window_handle();
+
             if let Some(head) = &mut self.head {
                 self.device.device_wait_idle()?;
                 for image_view in &head.swapchain_image_views {
@@ -1259,8 +1236,8 @@ impl VkInit {
                     &self.allocator,
                     &self.entry,
                     &self.instance,
-                    display_handle,
-                    window_handle,
+                    display_h,
+                    window_h,
                     window_size,
                     &self.physical_device,
                     &self.create_info,

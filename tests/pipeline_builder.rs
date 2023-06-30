@@ -3,8 +3,8 @@ mod tests {
     use std::mem::size_of;
 
     use ash::vk::*;
-    use vku::VkInit;
     use vku::pipeline_builder::{BlendMode, DepthInfo, StencilInfo, VKUPipeline, VertexConvert};
+    use vku::VkInit;
     use winit::platform::windows::EventLoopBuilderExtWindows;
 
     #[repr(C)]
@@ -57,7 +57,6 @@ mod tests {
     }
 
     fn default_vk_init() -> VkInit {
-        use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
         use vku::VkInitCreateInfo;
         use winit::dpi::LogicalSize;
         use winit::event_loop::{EventLoop, EventLoopBuilder};
@@ -74,11 +73,8 @@ mod tests {
             .build(&event_loop)
             .unwrap();
 
-        let display_h = window.raw_display_handle();
-        let window_h = window.raw_window_handle();
-
         let create_info = VkInitCreateInfo::default();
-        VkInit::new(Some(&display_h), Some(&window_h), Some(size), create_info).unwrap()
+        VkInit::new(Some(&window), Some(size), create_info).unwrap()
     }
 
     #[test]

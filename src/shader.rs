@@ -22,7 +22,6 @@ use std::path::Path;
 #[allow(unused_must_use)]
 
 pub fn compile_all_shaders(
-
     src_dir_path: &Path,
     target_dir_path: &Path,
     debug: bool,

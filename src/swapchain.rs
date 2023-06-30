@@ -1,3 +1,5 @@
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+
 use crate::{imports::*, VMAImage, VkInit};
 
 impl VkInit {
@@ -6,13 +8,15 @@ impl VkInit {
     /// Function waits for device_wait_idle before destroying the swapchain.
     /// Images must be transitioned to the appropriate image layout after recreation.
 
-    pub fn on_resize(
+    pub fn on_resize<T: HasRawDisplayHandle + HasRawWindowHandle>(
         &mut self,
-        display_handle: &RawDisplayHandle,
-        window_handle: &RawWindowHandle,
+        window: &T,
         new_size: [u32; 2],
     ) -> Result<(), Error> {
         unsafe {
+            let display_h = window.raw_display_handle();
+            let window_h = window.raw_window_handle();
+
             let mut head = self.head.as_mut().unwrap();
             self.device.device_wait_idle()?;
 
@@ -33,8 +37,8 @@ impl VkInit {
             let (surface_loader, surface, surface_info) = Self::create_surface(
                 &self.entry,
                 &self.instance,
-                display_handle,
-                window_handle,
+                display_h,
+                window_h,
                 new_size,
                 &self.physical_device,
                 &self.create_info,
