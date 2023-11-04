@@ -5,7 +5,7 @@ mod tests {
     use ash::vk::*;
     use vku::pipeline_builder::{BlendMode, DepthInfo, StencilInfo, VKUPipeline, VertexConvert};
     use vku::VkInit;
-    use winit::platform::windows::EventLoopBuilderExtWindows;
+    use winit::platform::x11::EventLoopBuilderExtX11;
 
     #[repr(C)]
     struct Vertex2D {
@@ -92,6 +92,7 @@ mod tests {
             .with_dynamic(&[DynamicState::VIEWPORT, DynamicState::SCISSOR])
             .with_push_constants::<Push>()
             .with_descriptors(&[(
+                false,
                 DescriptorType::COMBINED_IMAGE_SAMPLER,
                 ShaderStageFlags::FRAGMENT,
                 1,

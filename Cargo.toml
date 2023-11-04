@@ -12,7 +12,7 @@ categories = ["api-bindings", "graphics", "rendering"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ash = {version = "0.37.3", default-features = false, features = ["linked", "debug"]}
+ash = {version = "0.37.3", default-features = false, features = ["debug"]}
 ash-window = "0.12.0"
 raw-window-handle = "0.5.2"
 vma = "0.3.0"
@@ -26,5 +26,7 @@ winit = "0.28.6"
 env_logger = {version = "0.10.0", features = ["color", "humantime"]}
 
 [features]
-default = []
+default = ["loaded"]
 shader = ["dep:shaderc"]
+linked = ["ash/linked"]
+loaded = ["ash/loaded"]

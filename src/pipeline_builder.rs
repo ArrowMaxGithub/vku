@@ -53,7 +53,11 @@ pub struct VKUPipelineBuilder {
     pipeline_depthstencil: (DepthInfo, StencilInfo),
     pipeline_colorblend: Vec<PipelineColorBlendAttachmentState>,
     pipeline_dynamic: Vec<DynamicState>,
-    pipeline_layout: (Vec<DescriptorSetLayoutBinding>, Vec<PushConstantRange>),
+    pipeline_layout: (
+        Vec<DescriptorBindingFlags>,
+        Vec<DescriptorSetLayoutBinding>,
+        Vec<PushConstantRange>,
+    ),
     pipeline_renderpass: (
         Vec<AttachmentDescription>,
         Vec<SubpassDescription>,
@@ -146,10 +150,26 @@ impl VKUPipelineBuilder {
             })
             .collect();
 
-        let (bindings, push_constant_ranges) = self.pipeline_layout;
+        let (update_after_bind, bindings, push_constant_ranges) = self.pipeline_layout;
+
+        let mut desc_set_binding_flags = DescriptorSetLayoutBindingFlagsCreateInfo::builder()
+            .binding_flags(&update_after_bind)
+            .build();
+
+        let flags = if update_after_bind
+            .iter()
+            .any(|flag| flag == &DescriptorBindingFlags::UPDATE_AFTER_BIND)
+        {
+            DescriptorSetLayoutCreateFlags::UPDATE_AFTER_BIND_POOL
+        } else {
+            DescriptorSetLayoutCreateFlags::empty()
+        };
+
         let set_layouts = {
             let create_info = DescriptorSetLayoutCreateInfo::builder()
                 .bindings(&bindings)
+                .flags(flags)
+                .push_next(&mut desc_set_binding_flags)
                 .build();
 
             unsafe {
@@ -448,18 +468,18 @@ impl VKUPipelineBuilder {
             .stage_flags(ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT)
             .build();
 
-        self.pipeline_layout.1 = vec![push_constants_range];
+        self.pipeline_layout.2 = vec![push_constants_range];
         self
     }
 
     pub fn with_descriptors(
         mut self,
-        descriptors: &[(DescriptorType, ShaderStageFlags, u32)],
+        descriptors: &[(bool, DescriptorType, ShaderStageFlags, u32)],
     ) -> Self {
         let desc_set_layout_bindings: Vec<DescriptorSetLayoutBinding> = descriptors
             .iter()
             .enumerate()
-            .map(|(index, (ty, stages, count))| {
+            .map(|(index, (_, ty, stages, count))| {
                 DescriptorSetLayoutBinding::builder()
                     .descriptor_count(*count)
                     .binding(index as u32)
@@ -469,7 +489,16 @@ impl VKUPipelineBuilder {
             })
             .collect();
 
-        self.pipeline_layout.0 = desc_set_layout_bindings;
+        let binding_flags: Vec<DescriptorBindingFlags> = descriptors
+            .iter()
+            .map(|(dynamic, _, _, _)| match dynamic {
+                true => DescriptorBindingFlags::UPDATE_AFTER_BIND,
+                false => DescriptorBindingFlags::empty(),
+            })
+            .collect();
+
+        self.pipeline_layout.0 = binding_flags;
+        self.pipeline_layout.1 = desc_set_layout_bindings;
         self
     }
 

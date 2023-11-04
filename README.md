@@ -24,25 +24,22 @@ let window = WindowBuilder::new()
     .with_inner_size(LogicalSize{width: size[0], height: size[1]})
     .build(&event_loop).unwrap();
 
-let display_h = window.raw_display_handle();
-let window_h = window.raw_window_handle();
-
 let create_info = VkInitCreateInfo::default();
-let vk_init = VkInit::new(Some(&display_h), Some(&window_h), Some(size), create_info).unwrap();
+let vk_init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
 ```
 
 ## Swapchain recreation:
 ```rust,no_run
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use vku::VkInit;
+use winit::window::Window;
 
+let window: Window = todo!();
 let mut vk_init: VkInit = todo!();
-let display_h: RawDisplayHandle = todo!();
-let window_h: RawWindowHandle = todo!();
 
 let new_size = [1200_u32, 900_u32];
 
-vk_init.on_resize(&display_h, &window_h, new_size).unwrap();
+vk_init.on_resize(&window, new_size).unwrap();
 ```
 
  ## VMA Image allocation and tracked layout transitions:

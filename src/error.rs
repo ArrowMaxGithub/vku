@@ -27,44 +27,25 @@ pub enum Error {
 
     #[cfg(feature = "shader")]
     #[error("shader compilation failed, see preprocess trace above. Source error: {0}")]
-    Preprocess(shaderc::Error),
+    Preprocess(#[from] shaderc::Error),
 
     #[error("incorrect usage of the vulkan API: {0}")]
-    VkError(ash::vk::Result),
+    VkError(#[from] ash::vk::Result),
+
+    #[error("vulkan entry could not be loaded: {0}")]
+    AshLoadError(#[from] ash::LoadingError),
 
     #[error("encountered an unknown error: {0}")]
     Catch(Box<dyn std::error::Error>),
-}
 
-#[cfg(feature = "shader")]
-impl From<shaderc::Error> for Error {
-    fn from(value: shaderc::Error) -> Self {
-        Self::Preprocess(value)
-    }
-}
+    #[error("utf8 error: {0}")]
+    Utf8Error(#[from] Utf8Error),
 
-impl From<Utf8Error> for Error {
-    fn from(value: Utf8Error) -> Self {
-        Self::Catch(Box::new(value))
-    }
-}
+    #[error("cstring convert error: {0}")]
+    CStringConvertError(#[from] NulError),
 
-impl From<NulError> for Error {
-    fn from(value: NulError) -> Self {
-        Self::Catch(Box::new(value))
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(value: std::io::Error) -> Self {
-        Self::Catch(Box::new(value))
-    }
-}
-
-impl From<ash::vk::Result> for Error {
-    fn from(value: ash::vk::Result) -> Self {
-        Self::VkError(value)
-    }
+    #[error("io error: {0}")]
+    IOError(#[from] std::io::Error),
 }
 
 impl From<Box<dyn std::error::Error>> for Error {

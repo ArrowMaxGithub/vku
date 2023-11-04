@@ -63,10 +63,8 @@ impl VMABuffer {
     /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
-    /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
-    /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), create_info).unwrap();
+    /// let init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
     /// let size = 1024_usize;
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     ///
@@ -102,10 +100,8 @@ impl VMABuffer {
     /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
-    /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
-    /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), create_info).unwrap();
+    /// let init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
     /// let size = 1024_usize;
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     ///
@@ -165,25 +161,25 @@ impl VMABuffer {
     /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
-    /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
-    /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), create_info).unwrap();
+    /// let init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
     /// let size = 1024 * size_of::<usize>();
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     /// let buffer = init.create_cpu_to_gpu_buffer(size, usage).unwrap();
     ///
     /// let data = [42_usize; 1024];
-    /// buffer.set_data(&data).unwrap();
+    /// let offset = 0;
+    /// buffer.set_data(offset, &data).unwrap();
     /// ```
 
-    pub fn set_data<T>(&self, data: &[T]) -> Result<(), Error> {
+    pub fn set_data<T>(&self, offset: usize, data: &[T]) -> Result<(), Error> {
         if !self.is_mapped {
             return Err(Error::WriteAttemptToUnmappedBuffer);
         }
 
-        let ptr = self.allocation_info.mapped_data as *mut T;
+        let mut ptr = self.allocation_info.mapped_data as *mut T;
         unsafe {
+            ptr = ptr.add(offset);
             ptr.copy_from_nonoverlapping(data.as_ptr(), data.len());
         };
         Ok(())
@@ -216,10 +212,8 @@ impl VMABuffer {
     /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
-    /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
-    /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), create_info).unwrap();
+    /// let init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
     /// let size = 2 * size_of::<u32>() + 1024 * size_of::<f32>();
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     /// let buffer = init.create_cpu_to_gpu_buffer(size, usage).unwrap();
@@ -266,10 +260,8 @@ impl VMABuffer {
     /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
-    /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
-    /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), create_info).unwrap();
+    /// let init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
     /// # let cmd_buffer_pool =
     /// #    init.create_cmd_pool(CmdType::Any).unwrap();
     /// # let cmd_buffer =
@@ -282,7 +274,8 @@ impl VMABuffer {
     /// let dst_buffer = init.create_cpu_to_gpu_buffer(size, dst_usage).unwrap();
     ///
     /// let data = [42_u32; 1024];
-    /// src_buffer.set_data(&data).unwrap();
+    /// let offset = 0;
+    /// src_buffer.set_data(offset, &data).unwrap();
     ///
     /// src_buffer.enqueue_copy_to_buffer(
     ///     &init.device,
@@ -339,10 +332,8 @@ impl VMABuffer {
     /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
-    /// # let display_handle = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
-    /// # let window_handle = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), create_info).unwrap();
+    /// let init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
     /// let size = 1024 * size_of::<u32>();
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     /// let buffer = init.create_cpu_to_gpu_buffer(size, usage).unwrap();

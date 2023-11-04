@@ -63,10 +63,8 @@ pub struct Head {
 /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
 /// # let size = [800_u32, 600_u32];
 /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
-/// # let display_h = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&window);
-/// # let window_h = raw_window_handle::HasRawWindowHandle::raw_window_handle(&window);
 /// # let create_info = VkInitCreateInfo::default();
-/// let init = VkInit::new(Some(&display_h), Some(&window_h), Some(size), create_info).unwrap();
+/// let init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
 ///
 /// let (compute_queue, compute_queue_family_index) = init.get_queue(CmdType::Compute);
 pub enum CmdType {
@@ -126,11 +124,9 @@ impl VkInit {
     /// let window = WindowBuilder::new()
     ///     .with_inner_size(LogicalSize{width: size[0], height: size[1]})
     ///     .build(&event_loop).unwrap();
-    /// let display_handle = window.raw_display_handle();
-    /// let window_handle = window.raw_window_handle();
     /// let create_info = VkInitCreateInfo::default();
     ///
-    /// let init = VkInit::new(Some(&display_handle), Some(&window_handle), Some(size), create_info).unwrap();
+    /// let init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
     /// ```
 
     pub fn new<T: HasRawDisplayHandle + HasRawWindowHandle>(
@@ -146,7 +142,12 @@ impl VkInit {
                 ),
                 None => (None, None),
             };
+            #[cfg(feature = "linked")]
             let entry = ash::Entry::linked();
+
+            #[cfg(not(feature = "linked"))]
+            let entry = ash::Entry::load()?;
+
             let (instance, debug_loader, debug_messenger) =
                 Self::create_instance_and_debug(&entry, display_h, &create_info)?;
             let (physical_device, physical_device_info) =

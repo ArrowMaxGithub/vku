@@ -17,7 +17,7 @@ impl VkInit {
             let display_h = window.raw_display_handle();
             let window_h = window.raw_window_handle();
 
-            let mut head = self.head.as_mut().unwrap();
+            let head = self.head.as_mut().unwrap();
             self.device.device_wait_idle()?;
 
             //destroy swapchain
