@@ -14,6 +14,7 @@ impl VkInit {
         new_size: [u32; 2],
     ) -> Result<(), Error> {
         unsafe {
+            trace!("Resizing swapchain");
             let display_h = window.raw_display_handle();
             let window_h = window.raw_window_handle();
 
@@ -28,7 +29,8 @@ impl VkInit {
                 .destroy_swapchain(head.swapchain, None);
 
             //Destroy depth image
-            head.depth_image.destroy(&self.device, &mut self.allocator)?;
+            head.depth_image
+                .destroy(&self.device, &mut self.allocator)?;
 
             //destroy surface
             head.surface_loader.destroy_surface(head.surface, None);

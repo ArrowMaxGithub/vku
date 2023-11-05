@@ -1,6 +1,8 @@
-use gpu_allocator::{AllocatorDebugSettings, AllocationSizes};
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+use std::mem::ManuallyDrop;
+
 use gpu_allocator::vulkan::AllocatorCreateDesc;
+use gpu_allocator::{AllocationSizes, AllocatorDebugSettings};
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 use crate::create_info::VkInitCreateInfo;
 use crate::{imports::*, VMAImage};
@@ -14,7 +16,7 @@ use crate::{imports::*, VMAImage};
 /// - Shortcuts for present and submit operations
 pub struct VkInit {
     /// [GPU-Allocator](gpu-allocator::vulkan::Allocator)
-    pub allocator: Allocator,
+    pub allocator: ManuallyDrop<Allocator>,
     pub entry: Entry,
     pub instance: Instance,
     /// Only created with enabled validation
@@ -276,8 +278,10 @@ impl VkInit {
                 }
             }
 
+            trace!("Created VkInit");
+
             Ok(Self {
-                allocator,
+                allocator: ManuallyDrop::new(allocator),
                 entry,
                 instance,
                 debug_loader,
@@ -304,11 +308,14 @@ impl VkInit {
                 head.swapchain_loader
                     .destroy_swapchain(head.swapchain, None);
                 head.surface_loader.destroy_surface(head.surface, None);
-                head.depth_image.destroy(&self.device, &mut self.allocator)?;
+                head.depth_image
+                    .destroy(&self.device, &mut self.allocator)?;
             }
             if let Some(dbg_loader) = &self.debug_loader {
                 dbg_loader.destroy_debug_utils_messenger(self.debug_messenger.unwrap(), None);
             }
+
+            ManuallyDrop::drop(&mut self.allocator);
 
             self.device.destroy_device(None);
             // self.instance.destroy_instance(None); seg faults for no apparant reason
@@ -750,9 +757,16 @@ impl VkInit {
         if create_info.enable_validation {
             extensions_names.push(DebugUtils::name().as_ptr());
 
+            let supported_layers: Vec<String> = entry
+                .enumerate_instance_layer_properties()?
+                .iter()
+                .filter_map(|prop| char_array_to_string(&prop.layer_name).ok())
+                .collect();
+
             let enabled_layers_names_c_strings: Vec<CString> = create_info
                 .enabled_validation_layers
                 .iter()
+                .filter(|layer| supported_layers.contains(*layer))
                 .map(|s| CString::new(s.clone()).unwrap())
                 .collect();
 
@@ -983,6 +997,7 @@ impl VkInit {
         device_create_info = device_create_info.push_next(&mut pdevice_1_3_features);
 
         let device = instance.create_device(*physical_device, &device_create_info, None)?;
+        trace!("Created device");
         Ok(device)
     }
 
@@ -991,15 +1006,23 @@ impl VkInit {
         physical_device: &PhysicalDevice,
         device: &Device,
     ) -> Result<Allocator, Error> {
-        let create_info = AllocatorCreateDesc{
+        let create_info = AllocatorCreateDesc {
             instance: instance.clone(),
             device: device.clone(),
             physical_device: *physical_device,
-            debug_settings: AllocatorDebugSettings { log_memory_information: false, log_leaks_on_shutdown: true, store_stack_traces: false, log_allocations: false, log_frees: false, log_stack_traces: false },
+            debug_settings: AllocatorDebugSettings {
+                log_memory_information: false,
+                log_leaks_on_shutdown: true,
+                store_stack_traces: false,
+                log_allocations: false,
+                log_frees: false,
+                log_stack_traces: false,
+            },
             buffer_device_address: false,
             allocation_sizes: AllocationSizes::default(),
         };
         let allocator = Allocator::new(&create_info)?;
+        trace!("Created allocator");
         Ok(allocator)
     }
 
@@ -1016,6 +1039,7 @@ impl VkInit {
             .compute_queue_family_index
             .map(|compute_index| device.get_device_queue(compute_index, 0));
 
+        trace!("Created queues");
         Ok((unified_queue, transfer_queue, compute_queue))
     }
 
@@ -1080,6 +1104,7 @@ impl VkInit {
             pre_transform,
         };
 
+        trace!("Created surface");
         Ok((loader, surface, surface_info))
     }
 
@@ -1111,6 +1136,7 @@ impl VkInit {
         let loader = Swapchain::new(instance, device);
         let swapchain = loader.create_swapchain(&swapchain_create_info, None)?;
 
+        trace!("Created swapchain");
         Ok((loader, swapchain))
     }
 
@@ -1145,6 +1171,7 @@ impl VkInit {
             image_views.push(image_view);
         }
 
+        trace!("Created swapchain images");
         Ok((images, image_views))
     }
 
@@ -1163,6 +1190,7 @@ impl VkInit {
         let depth_image =
             VMAImage::create_depth_image(device, allocator, depth_extent, format, sizeof)?;
 
+        trace!("Created depth images");
         Ok(depth_image)
     }
 

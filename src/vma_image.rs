@@ -24,12 +24,12 @@ impl VMAImage {
         mut allocation_create_info: AllocationCreateDesc,
         staging_buffer: VMABuffer,
     ) -> Result<Self, Error> {
-        let (image, allocation) = unsafe { 
+        let (image, allocation) = unsafe {
             let image = device.create_image(&image_info, None)?;
             let req = device.get_image_memory_requirements(image);
             allocation_create_info.requirements = req;
             let alloc = allocator.allocate(&allocation_create_info)?;
-            device.bind_image_memory(image, alloc.memory(), 0)?;
+            device.bind_image_memory(image, alloc.memory(), alloc.offset())?;
             (image, alloc)
         };
 
@@ -72,7 +72,7 @@ impl VMAImage {
             self.staging_buffer.destroy(device, allocator)?;
             device.destroy_image(self.image, None);
             device.destroy_image_view(self.image_view, None);
-            let alloc = std::mem::replace(&mut self.allocation, Allocation::default());
+            let alloc = std::mem::take(&mut self.allocation);
             allocator.free(alloc)?;
         }
         Ok(())
@@ -140,7 +140,7 @@ impl VMAImage {
             ..Default::default()
         };
 
-        let allocation_info = AllocationCreateDesc{
+        let allocation_info = AllocationCreateDesc {
             name: "Local_Image_Memory",
             requirements: MemoryRequirements::default(),
             location: MemoryLocation::GpuOnly,
@@ -185,7 +185,7 @@ impl VMAImage {
             ..Default::default()
         };
 
-        let allocation_info = AllocationCreateDesc{
+        let allocation_info = AllocationCreateDesc {
             name: "Local_Image_Memory",
             requirements: MemoryRequirements::default(),
             location: MemoryLocation::GpuOnly,
@@ -230,7 +230,7 @@ impl VMAImage {
             ..Default::default()
         };
 
-        let allocation_info = AllocationCreateDesc{
+        let allocation_info = AllocationCreateDesc {
             name: "Local_Image_Memory",
             requirements: MemoryRequirements::default(),
             location: MemoryLocation::GpuOnly,
@@ -405,6 +405,13 @@ impl VkInit {
         format_sizeof: usize,
         aspect_mask: ImageAspectFlags,
     ) -> Result<VMAImage, Error> {
-        VMAImage::create_empty_image(&self.device, &mut self.allocator, extent, format, format_sizeof, aspect_mask)
+        VMAImage::create_empty_image(
+            &self.device,
+            &mut self.allocator,
+            extent,
+            format,
+            format_sizeof,
+            aspect_mask,
+        )
     }
 }

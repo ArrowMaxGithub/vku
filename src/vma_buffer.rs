@@ -15,25 +15,22 @@ impl VMABuffer {
         buffer_info: BufferCreateInfo,
         mut allocation_create_info: AllocationCreateDesc,
     ) -> Result<Self, Error> {
-        let (buffer, allocation) = unsafe { 
+        let (buffer, allocation) = unsafe {
             let buffer = device.create_buffer(&buffer_info, None)?;
             let req = device.get_buffer_memory_requirements(buffer);
             allocation_create_info.requirements = req;
             let alloc = allocator.allocate(&allocation_create_info)?;
-            device.bind_buffer_memory(buffer, alloc.memory(), 0)?;
+            device.bind_buffer_memory(buffer, alloc.memory(), alloc.offset())?;
             (buffer, alloc)
         };
 
-        Ok(Self {
-            buffer,
-            allocation,
-        })
+        Ok(Self { buffer, allocation })
     }
 
     pub fn destroy(&mut self, device: &Device, allocator: &mut Allocator) -> Result<(), Error> {
         unsafe {
             device.destroy_buffer(self.buffer, None);
-            let alloc = std::mem::replace(&mut self.allocation, Allocation::default());
+            let alloc = std::mem::take(&mut self.allocation);
             allocator.free(alloc)?;
         }
         Ok(())
@@ -83,7 +80,7 @@ impl VMABuffer {
             .usage(usage)
             .build();
 
-        let allocation_info = AllocationCreateDesc{
+        let allocation_info = AllocationCreateDesc {
             name: "Local_Buffer_Memory",
             requirements: MemoryRequirements::default(),
             location: MemoryLocation::GpuOnly,
@@ -125,7 +122,7 @@ impl VMABuffer {
             .usage(usage)
             .build();
 
-        let allocation_info = AllocationCreateDesc{
+        let allocation_info = AllocationCreateDesc {
             name: "Upload_Buffer_Memory",
             requirements: MemoryRequirements::default(),
             location: MemoryLocation::CpuToGpu,
@@ -148,7 +145,7 @@ impl VMABuffer {
             .usage(usage)
             .build();
 
-        let allocation_info = AllocationCreateDesc{
+        let allocation_info = AllocationCreateDesc {
             name: "Readback_Buffer_Memory",
             requirements: MemoryRequirements::default(),
             location: MemoryLocation::GpuToCpu,
@@ -423,12 +420,13 @@ impl VkInit {
     ) -> Result<Vec<VMABuffer>, Error> {
         let mut buffers = Vec::new();
         for _ in 0..count {
-            let buffer = VMABuffer::create_local_buffer(&self.device, &mut self.allocator, size, usage)?;
+            let buffer =
+                VMABuffer::create_local_buffer(&self.device, &mut self.allocator, size, usage)?;
             buffers.push(buffer);
         }
         Ok(buffers)
     }
-    
+
     /// Shortcut - see [VMABuffer](VMABuffer::create_cpu_to_gpu_buffer) for example.
     pub fn create_cpu_to_gpu_buffers(
         &mut self,
@@ -438,7 +436,12 @@ impl VkInit {
     ) -> Result<Vec<VMABuffer>, Error> {
         let mut buffers = Vec::new();
         for _ in 0..count {
-            let buffer = VMABuffer::create_cpu_to_gpu_buffer(&self.device, &mut self.allocator, size, usage)?;
+            let buffer = VMABuffer::create_cpu_to_gpu_buffer(
+                &self.device,
+                &mut self.allocator,
+                size,
+                usage,
+            )?;
             buffers.push(buffer);
         }
         Ok(buffers)
