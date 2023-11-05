@@ -96,6 +96,3 @@ fn main() -> Result<(), vku::Error>{
     Ok(())
 }
 ```
-
-## More examples
-For more examples check the [examples repo](https://github.com/ArrowMaxGithub/vku-examples).
