@@ -135,7 +135,7 @@ impl VKUPipelineBuilder {
             })
             .collect();
 
-        let entry_name = CString::new("main").unwrap();
+        let entry_name = CString::new("main")?;
         let pipeline_stages: Vec<PipelineShaderStageCreateInfo> = self
             .pipeline_stages
             .iter()
@@ -256,33 +256,18 @@ impl VKUPipelineBuilder {
         stage: ShaderStageFlags,
         path: impl AsRef<Path>,
         spec_constants: &[u32],
-    ) -> Self {
+    ) -> Result<Self, Error> {
         let module = {
-            let mut file = match std::fs::File::open(path.as_ref()) {
-                Ok(file) => file,
-                Err(e) => panic!(
-                    "failed to open file at {:?}. Reason: {:?}",
-                    path.as_ref(),
-                    e
-                ),
-            };
+            let mut file = std::fs::File::open(path.as_ref())?;
 
-            let spirv = match read_spv(&mut file) {
-                Ok(spirv) => spirv,
-                Err(e) => panic!("failed to read spirv from opened file. Reason: {e}"),
-            };
+            let spirv = read_spv(&mut file)?;
 
             let create_info = ShaderModuleCreateInfo::builder()
                 .flags(ShaderModuleCreateFlags::empty())
                 .code(&spirv)
                 .build();
 
-            unsafe {
-                match device.create_shader_module(&create_info, None) {
-                    Ok(shader_module) => shader_module,
-                    Err(e) => panic!("failed to create shader module from spirv. Reason: {e}"),
-                }
-            }
+            unsafe { device.create_shader_module(&create_info, None)? }
         };
 
         let map_entries: Vec<SpecializationMapEntry> = spec_constants
@@ -302,7 +287,7 @@ impl VKUPipelineBuilder {
 
         self.pipeline_stages
             .push((stage, module, data, map_entries));
-        self
+        Ok(self)
     }
 
     pub fn push_shader_stage_spirv(
@@ -311,19 +296,14 @@ impl VKUPipelineBuilder {
         stage: ShaderStageFlags,
         spirv: &[u32],
         spec_constants: &[u32],
-    ) -> Self {
+    ) -> Result<Self, Error> {
         let module = {
             let create_info = ShaderModuleCreateInfo::builder()
                 .flags(ShaderModuleCreateFlags::empty())
                 .code(spirv)
                 .build();
 
-            unsafe {
-                match device.create_shader_module(&create_info, None) {
-                    Ok(shader_module) => shader_module,
-                    Err(e) => panic!("failed to create shader module from spirv. Reason: {e}"),
-                }
-            }
+            unsafe { device.create_shader_module(&create_info, None)? }
         };
 
         let map_entries: Vec<SpecializationMapEntry> = spec_constants
@@ -343,7 +323,7 @@ impl VKUPipelineBuilder {
 
         self.pipeline_stages
             .push((stage, module, data, map_entries));
-        self
+        Ok(self)
     }
 
     #[cfg(feature = "shader")]
@@ -353,14 +333,14 @@ impl VKUPipelineBuilder {
         stage: ShaderStageFlags,
         glsl: String,
         spec_constants: &[u32],
-    ) -> Self {
+    ) -> Result<Self, Error> {
         let ext = match stage {
             ShaderStageFlags::VERTEX => "vert",
             ShaderStageFlags::FRAGMENT => "frag",
-            _ => panic!("unexpected shader stage flags"),
+            _ => return Err(Error::UnknownShaderFileExtension),
         };
 
-        let compiled = crate::shader::shader_ad_hoc(glsl, "", ext, false).unwrap();
+        let compiled = crate::shader::shader_ad_hoc(glsl, "", ext, false)?;
 
         let module = {
             let create_info = ShaderModuleCreateInfo::builder()
@@ -368,12 +348,7 @@ impl VKUPipelineBuilder {
                 .code(compiled.as_binary())
                 .build();
 
-            unsafe {
-                match device.create_shader_module(&create_info, None) {
-                    Ok(shader_module) => shader_module,
-                    Err(e) => panic!("failed to create shader module from spirv. Reason: {e}"),
-                }
-            }
+            unsafe { device.create_shader_module(&create_info, None)? }
         };
 
         let map_entries: Vec<SpecializationMapEntry> = spec_constants
@@ -393,7 +368,8 @@ impl VKUPipelineBuilder {
 
         self.pipeline_stages
             .push((stage, module, data, map_entries));
-        self
+
+        Ok(self)
     }
 
     pub fn with_render_pass(

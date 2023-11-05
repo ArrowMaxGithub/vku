@@ -3,8 +3,9 @@ mod tests {
     use std::mem::size_of;
 
     use ash::vk::*;
+    use std::result::Result;
     use vku::pipeline_builder::{BlendMode, DepthInfo, StencilInfo, VKUPipeline, VertexConvert};
-    use vku::VkInit;
+    use vku::{Error, VkInit};
     use winit::platform::x11::EventLoopBuilderExtX11;
 
     #[repr(C)]
@@ -56,7 +57,7 @@ mod tests {
         pub vec_3: [f32; 4],
     }
 
-    fn default_vk_init() -> VkInit {
+    fn default_vk_init() -> Result<VkInit, Error> {
         use vku::VkInitCreateInfo;
         use winit::dpi::LogicalSize;
         use winit::event_loop::{EventLoop, EventLoopBuilder};
@@ -74,12 +75,12 @@ mod tests {
             .unwrap();
 
         let create_info = VkInitCreateInfo::default();
-        VkInit::new(Some(&window), Some(size), create_info).unwrap()
+        VkInit::new(Some(&window), Some(size), create_info)
     }
 
     #[test]
-    fn default_pipeline() {
-        let vk_init = default_vk_init();
+    fn default_pipeline() -> Result<(), Error> {
+        let vk_init = default_vk_init()?;
 
         let _pipeline = VKUPipeline::builder()
             .with_vertex::<Vertex2D>(PrimitiveTopology::TRIANGLE_LIST)
@@ -102,13 +103,13 @@ mod tests {
                 ShaderStageFlags::VERTEX,
                 "./tests/default.vert.spv",
                 &[],
-            )
+            )?
             .push_shader_stage(
                 &vk_init.device,
                 ShaderStageFlags::FRAGMENT,
                 "./tests/default.frag.spv",
                 &[],
-            )
+            )?
             .with_render_pass(
                 &[
                     AttachmentDescription::builder()
@@ -141,7 +142,8 @@ mod tests {
                     .build()],
                 &[],
             )
-            .build(&vk_init, "Default_Pipeline")
-            .unwrap();
+            .build(&vk_init, "Default_Pipeline")?;
+
+        Ok(())
     }
 }

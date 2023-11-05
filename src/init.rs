@@ -1,7 +1,8 @@
 use std::mem::ManuallyDrop;
 
+use gpu_allocator::vulkan::AllocatorCreateDesc;
+use gpu_allocator::{AllocationSizes, AllocatorDebugSettings};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
-use vma::AllocatorCreateInfo;
 
 use crate::create_info::VkInitCreateInfo;
 use crate::{imports::*, VMAImage};
@@ -14,7 +15,7 @@ use crate::{imports::*, VMAImage};
 /// - Optionally exposed dedicated compute and transfer queues
 /// - Shortcuts for present and submit operations
 pub struct VkInit {
-    /// [VMA](vma::Allocator) allocator
+    /// [GPU-Allocator](gpu-allocator::vulkan::Allocator)
     pub allocator: ManuallyDrop<Allocator>,
     pub entry: Entry,
     pub instance: Instance,
@@ -64,9 +65,10 @@ pub struct Head {
 /// # let size = [800_u32, 600_u32];
 /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
 /// # let create_info = VkInitCreateInfo::default();
-/// let init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
+/// let init = VkInit::new(Some(&window), Some(size), create_info)?;
 ///
 /// let (compute_queue, compute_queue_family_index) = init.get_queue(CmdType::Compute);
+/// # Ok::<(), vku::Error>(())
 pub enum CmdType {
     /// Graphics | Transfer | Compute
     Any,
@@ -126,7 +128,8 @@ impl VkInit {
     ///     .build(&event_loop).unwrap();
     /// let create_info = VkInitCreateInfo::default();
     ///
-    /// let init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
+    /// let init = VkInit::new(Some(&window), Some(size), create_info)?;
+    /// # Ok::<(), vku::Error>(())
     /// ```
 
     pub fn new<T: HasRawDisplayHandle + HasRawWindowHandle>(
@@ -158,7 +161,7 @@ impl VkInit {
                 &physical_device_info,
                 &create_info,
             )?;
-            let allocator = Self::create_allocator(&instance, &physical_device, &device)?;
+            let mut allocator = Self::create_allocator(&instance, &physical_device, &device)?;
             let (unified_queue, transfer_queue, compute_queue) =
                 Self::create_queues(&device, &physical_device_info)?;
 
@@ -167,7 +170,7 @@ impl VkInit {
             {
                 Some(Self::create_head(
                     &device,
-                    &allocator,
+                    &mut allocator,
                     &entry,
                     &instance,
                     display_handle,
@@ -250,7 +253,7 @@ impl VkInit {
                     Self::set_debug_object_name_static(
                         dbg,
                         &device,
-                        head.depth_image.allocation_info.device_memory.as_raw(),
+                        head.depth_image.allocation.memory().as_raw(),
                         ObjectType::DEVICE_MEMORY,
                         "VKU_DepthImage_Memory".to_string(),
                     )?;
@@ -276,6 +279,8 @@ impl VkInit {
                     }
                 }
             }
+
+            trace!("Created VkInit");
 
             Ok(Self {
                 allocator: ManuallyDrop::new(allocator),
@@ -305,10 +310,13 @@ impl VkInit {
                 head.swapchain_loader
                     .destroy_swapchain(head.swapchain, None);
                 head.surface_loader.destroy_surface(head.surface, None);
-                head.depth_image.destroy(&self.device, &self.allocator)?;
+                head.depth_image
+                    .destroy(&self.device, &mut self.allocator)?;
             }
             if let Some(dbg_loader) = &self.debug_loader {
-                dbg_loader.destroy_debug_utils_messenger(self.debug_messenger.unwrap(), None);
+                if let Some(dbg_msg) = self.debug_messenger {
+                    dbg_loader.destroy_debug_utils_messenger(dbg_msg, None);
+                }
             }
 
             ManuallyDrop::drop(&mut self.allocator);
@@ -470,7 +478,9 @@ impl VkInit {
         &self,
         acquire_img_semaphore: Semaphore,
     ) -> Result<(usize, Image, ImageView, bool), Error> {
-        let head = self.head.as_ref().unwrap();
+        let Some(head) = self.head.as_ref() else {
+            return Err(Error::HeadCallOnHeadlessInstance);
+        };
         let (index, sub_optimal) = unsafe {
             head.swapchain_loader.acquire_next_image(
                 head.swapchain,
@@ -501,8 +511,14 @@ impl VkInit {
         Ok(())
     }
 
-    pub fn begin_rendering(&self, swapchain_image_view: &ImageView, cmd_buffer: &CommandBuffer) {
-        let head = self.head.as_ref().unwrap();
+    pub fn begin_rendering(
+        &self,
+        swapchain_image_view: &ImageView,
+        cmd_buffer: &CommandBuffer,
+    ) -> Result<(), Error> {
+        let Some(head) = self.head.as_ref() else {
+            return Err(Error::HeadCallOnHeadlessInstance);
+        };
 
         let clear_color_value = ClearValue {
             color: head.clear_color_value,
@@ -541,6 +557,8 @@ impl VkInit {
             self.device
                 .cmd_begin_rendering(*cmd_buffer, &rendering_begin_info);
         }
+
+        Ok(())
     }
 
     pub fn end_rendering(&self, cmd_buffer: &CommandBuffer) {
@@ -627,7 +645,9 @@ impl VkInit {
         rendering_complete_semaphore: &Semaphore,
         frame: usize,
     ) -> Result<(), Error> {
-        let head = self.head.as_ref().unwrap();
+        let Some(head) = self.head.as_ref() else {
+            return Err(Error::HeadCallOnHeadlessInstance);
+        };
         let swapchains = [head.swapchain];
         let image_indices = [frame as u32];
         let wait_sems = [*rendering_complete_semaphore];
@@ -668,19 +688,11 @@ impl VkInit {
                 self.physical_device_info.unified_queue_family_index,
             ),
             CmdType::Transfer => {
-                //TODO: Implement as if-let chains once stabilized
-                if self
-                    .physical_device_info
-                    .transfer_queue_family_index
-                    .is_some()
-                    && self.transfer_queue.is_some()
-                {
-                    (
-                        self.transfer_queue.unwrap(),
-                        self.physical_device_info
-                            .transfer_queue_family_index
-                            .unwrap(),
-                    )
+                if let (Some(queue), Some(index)) = (
+                    self.transfer_queue,
+                    self.physical_device_info.transfer_queue_family_index,
+                ) {
+                    (queue, index)
                 } else {
                     (
                         self.unified_queue,
@@ -689,19 +701,11 @@ impl VkInit {
                 }
             }
             CmdType::Compute => {
-                //TODO: Implement as if-let chains once stabilized
-                if self
-                    .physical_device_info
-                    .compute_queue_family_index
-                    .is_some()
-                    && self.compute_queue.is_some()
-                {
-                    (
-                        self.compute_queue.unwrap(),
-                        self.physical_device_info
-                            .compute_queue_family_index
-                            .unwrap(),
-                    )
+                if let (Some(queue), Some(index)) = (
+                    self.compute_queue,
+                    self.physical_device_info.compute_queue_family_index,
+                ) {
+                    (queue, index)
                 } else {
                     (
                         self.unified_queue,
@@ -753,10 +757,17 @@ impl VkInit {
         if create_info.enable_validation {
             extensions_names.push(DebugUtils::name().as_ptr());
 
+            let supported_layers: Vec<String> = entry
+                .enumerate_instance_layer_properties()?
+                .iter()
+                .filter_map(|prop| char_array_to_string(&prop.layer_name).ok())
+                .collect();
+
             let enabled_layers_names_c_strings: Vec<CString> = create_info
                 .enabled_validation_layers
                 .iter()
-                .map(|s| CString::new(s.clone()).unwrap())
+                .filter(|layer| supported_layers.contains(*layer))
+                .filter_map(|s| CString::new(s.clone()).ok())
                 .collect();
 
             let enabled_layers_names_ptr: Vec<*const i8> = enabled_layers_names_c_strings
@@ -917,9 +928,8 @@ impl VkInit {
         physical_device_info: &PhysicalDeviceInfo,
         create_info: &VkInitCreateInfo,
     ) -> Result<Device, Error> {
-        let supported_extensions = instance
-            .enumerate_device_extension_properties(*physical_device)
-            .unwrap();
+        let supported_extensions =
+            instance.enumerate_device_extension_properties(*physical_device)?;
 
         let mut enabled_extensions_raw: Vec<*const i8> = create_info
             .additional_device_extensions
@@ -938,7 +948,7 @@ impl VkInit {
                 Some(_) => continue,
                 None => {
                     return Err(Error::RequiredDeviceExtensionNotSupported(
-                        ext_name.to_str().unwrap().to_string(),
+                        ext_name.to_str()?.to_string(),
                     ))
                 }
             }
@@ -986,6 +996,7 @@ impl VkInit {
         device_create_info = device_create_info.push_next(&mut pdevice_1_3_features);
 
         let device = instance.create_device(*physical_device, &device_create_info, None)?;
+        trace!("Created device");
         Ok(device)
     }
 
@@ -994,8 +1005,23 @@ impl VkInit {
         physical_device: &PhysicalDevice,
         device: &Device,
     ) -> Result<Allocator, Error> {
-        let create_info = AllocatorCreateInfo::new(instance, device, *physical_device);
-        let allocator = vma::Allocator::new(create_info)?;
+        let create_info = AllocatorCreateDesc {
+            instance: instance.clone(),
+            device: device.clone(),
+            physical_device: *physical_device,
+            debug_settings: AllocatorDebugSettings {
+                log_memory_information: false,
+                log_leaks_on_shutdown: true,
+                store_stack_traces: false,
+                log_allocations: false,
+                log_frees: false,
+                log_stack_traces: false,
+            },
+            buffer_device_address: false,
+            allocation_sizes: AllocationSizes::default(),
+        };
+        let allocator = Allocator::new(&create_info)?;
+        trace!("Created allocator");
         Ok(allocator)
     }
 
@@ -1012,6 +1038,7 @@ impl VkInit {
             .compute_queue_family_index
             .map(|compute_index| device.get_device_queue(compute_index, 0));
 
+        trace!("Created queues");
         Ok((unified_queue, transfer_queue, compute_queue))
     }
 
@@ -1076,6 +1103,7 @@ impl VkInit {
             pre_transform,
         };
 
+        trace!("Created surface");
         Ok((loader, surface, surface_info))
     }
 
@@ -1107,6 +1135,7 @@ impl VkInit {
         let loader = Swapchain::new(instance, device);
         let swapchain = loader.create_swapchain(&swapchain_create_info, None)?;
 
+        trace!("Created swapchain");
         Ok((loader, swapchain))
     }
 
@@ -1141,12 +1170,13 @@ impl VkInit {
             image_views.push(image_view);
         }
 
+        trace!("Created swapchain images");
         Ok((images, image_views))
     }
 
     pub(crate) unsafe fn create_depth_image(
         device: &Device,
-        allocator: &Allocator,
+        allocator: &mut Allocator,
         window_size: [u32; 2],
         format: Format,
         sizeof: usize,
@@ -1159,13 +1189,14 @@ impl VkInit {
         let depth_image =
             VMAImage::create_depth_image(device, allocator, depth_extent, format, sizeof)?;
 
+        trace!("Created depth images");
         Ok(depth_image)
     }
 
     #[allow(clippy::too_many_arguments)]
     pub(crate) unsafe fn create_head(
         device: &Device,
-        allocator: &Allocator,
+        allocator: &mut Allocator,
         entry: &Entry,
         instance: &Instance,
         display_handle: RawDisplayHandle,
@@ -1234,7 +1265,7 @@ impl VkInit {
 
                 self.head = Some(Self::create_head(
                     &self.device,
-                    &self.allocator,
+                    &mut self.allocator,
                     &self.entry,
                     &self.instance,
                     display_h,

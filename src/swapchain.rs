@@ -14,10 +14,15 @@ impl VkInit {
         new_size: [u32; 2],
     ) -> Result<(), Error> {
         unsafe {
+            trace!("Resizing swapchain");
+
+            let Some(head) = self.head.as_mut() else {
+                return Err(Error::HeadCallOnHeadlessInstance);
+            };
+
             let display_h = window.raw_display_handle();
             let window_h = window.raw_window_handle();
 
-            let head = self.head.as_mut().unwrap();
             self.device.device_wait_idle()?;
 
             //destroy swapchain
@@ -28,7 +33,8 @@ impl VkInit {
                 .destroy_swapchain(head.swapchain, None);
 
             //Destroy depth image
-            head.depth_image.destroy(&self.device, &self.allocator)?;
+            head.depth_image
+                .destroy(&self.device, &mut self.allocator)?;
 
             //destroy surface
             head.surface_loader.destroy_surface(head.surface, None);
@@ -79,7 +85,7 @@ impl VkInit {
             };
             head.depth_image = VMAImage::create_depth_image(
                 &self.device,
-                &self.allocator,
+                &mut self.allocator,
                 extent,
                 head.depth_format,
                 head.depth_format_sizeof,

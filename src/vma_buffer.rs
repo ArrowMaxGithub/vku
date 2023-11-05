@@ -1,4 +1,4 @@
-use vma::Alloc;
+use gpu_allocator::vulkan::AllocationScheme;
 
 use crate::{imports::*, VkInit};
 
@@ -6,35 +6,32 @@ use crate::{imports::*, VkInit};
 pub struct VMABuffer {
     pub buffer: Buffer,
     pub allocation: Allocation,
-    pub allocation_info: AllocationInfo,
-    pub is_mapped: bool,
 }
 
 impl VMABuffer {
     fn new(
-        allocator: &Allocator,
-        buffer_info: &BufferCreateInfo,
-        allocation_create_info: &AllocationCreateInfo,
+        device: &Device,
+        allocator: &mut Allocator,
+        buffer_info: BufferCreateInfo,
+        mut allocation_create_info: AllocationCreateDesc,
     ) -> Result<Self, Error> {
-        let (buffer, allocation) =
-            unsafe { allocator.create_buffer(buffer_info, allocation_create_info)? };
-        let allocation_info = allocator.get_allocation_info(&allocation);
+        let (buffer, allocation) = unsafe {
+            let buffer = device.create_buffer(&buffer_info, None)?;
+            let req = device.get_buffer_memory_requirements(buffer);
+            allocation_create_info.requirements = req;
+            let alloc = allocator.allocate(&allocation_create_info)?;
+            device.bind_buffer_memory(buffer, alloc.memory(), alloc.offset())?;
+            (buffer, alloc)
+        };
 
-        let is_mapped = allocation_create_info
-            .flags
-            .contains(AllocationCreateFlags::MAPPED);
-
-        Ok(Self {
-            buffer,
-            allocation,
-            allocation_info,
-            is_mapped,
-        })
+        Ok(Self { buffer, allocation })
     }
 
-    pub fn destroy(&mut self, allocator: &Allocator) -> Result<(), Error> {
+    pub fn destroy(&mut self, device: &Device, allocator: &mut Allocator) -> Result<(), Error> {
         unsafe {
-            allocator.destroy_buffer(self.buffer, &mut self.allocation);
+            device.destroy_buffer(self.buffer, None);
+            let alloc = std::mem::take(&mut self.allocation);
+            allocator.free(alloc)?;
         }
         Ok(())
     }
@@ -46,7 +43,7 @@ impl VMABuffer {
             format!("{base_name}_Buffer"),
         )?;
         vk_init.set_debug_object_name(
-            self.allocation_info.device_memory.as_raw(),
+            unsafe { self.allocation.memory().as_raw() },
             ObjectType::DEVICE_MEMORY,
             format!("{base_name}_Memory"),
         )?;
@@ -64,29 +61,35 @@ impl VMABuffer {
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
+    /// let mut init = VkInit::new(Some(&window), Some(size), create_info)?;
     /// let size = 1024_usize;
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     ///
-    /// let buffer = VMABuffer::create_local_buffer(&init.allocator, size, usage).unwrap();
-    /// let buffer_shortcut = init.create_local_buffer(size, usage).unwrap();
+    /// let buffer = VMABuffer::create_local_buffer(&init.device, &mut init.allocator, size, usage)?;
+    /// let buffer_shortcut = init.create_local_buffer(size, usage)?;
+    /// # Ok::<(), vku::Error>(())
 
     pub fn create_local_buffer(
-        allocator: &Allocator,
+        device: &Device,
+        allocator: &mut Allocator,
         size: usize,
         usage: BufferUsageFlags,
     ) -> Result<VMABuffer, Error> {
         let buffer_info = BufferCreateInfo::builder()
             .size(size as u64)
             .sharing_mode(SharingMode::EXCLUSIVE)
-            .usage(usage);
+            .usage(usage)
+            .build();
 
-        let allocation_info = AllocationCreateInfo {
-            usage: MemoryUsage::AutoPreferDevice,
-            ..Default::default()
+        let allocation_info = AllocationCreateDesc {
+            name: "Local_Buffer_Memory",
+            requirements: MemoryRequirements::default(),
+            location: MemoryLocation::GpuOnly,
+            linear: true,
+            allocation_scheme: AllocationScheme::GpuAllocatorManaged,
         };
 
-        Self::new(allocator, &buffer_info, &allocation_info)
+        Self::new(device, allocator, buffer_info, allocation_info)
     }
 
     /// Creates, allocates and maps a buffer of the requested size.
@@ -101,52 +104,58 @@ impl VMABuffer {
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
+    /// let mut init = VkInit::new(Some(&window), Some(size), create_info)?;
     /// let size = 1024_usize;
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     ///
-    /// let buffer = VMABuffer::create_cpu_to_gpu_buffer(&init.allocator, size, usage).unwrap();
-    /// let buffer_shortcut = init.create_cpu_to_gpu_buffer(size, usage).unwrap();
+    /// let buffer = VMABuffer::create_cpu_to_gpu_buffer(&init.device, &mut init.allocator, size, usage)?;
+    /// let buffer_shortcut = init.create_cpu_to_gpu_buffer(size, usage)?;
+    /// # Ok::<(), vku::Error>(())
 
     pub fn create_cpu_to_gpu_buffer(
-        allocator: &Allocator,
+        device: &Device,
+        allocator: &mut Allocator,
         size: usize,
         usage: BufferUsageFlags,
     ) -> Result<VMABuffer, Error> {
         let buffer_info = BufferCreateInfo::builder()
             .size(size as u64)
             .sharing_mode(SharingMode::EXCLUSIVE)
-            .usage(usage);
+            .usage(usage)
+            .build();
 
-        let allocation_info = AllocationCreateInfo {
-            usage: MemoryUsage::AutoPreferDevice,
-            flags: AllocationCreateFlags::MAPPED
-                | AllocationCreateFlags::HOST_ACCESS_SEQUENTIAL_WRITE,
-            ..Default::default()
+        let allocation_info = AllocationCreateDesc {
+            name: "Upload_Buffer_Memory",
+            requirements: MemoryRequirements::default(),
+            location: MemoryLocation::CpuToGpu,
+            linear: true,
+            allocation_scheme: AllocationScheme::GpuAllocatorManaged,
         };
 
-        Self::new(allocator, &buffer_info, &allocation_info)
+        Self::new(device, allocator, buffer_info, allocation_info)
     }
 
     pub fn create_readback_buffer(
-        allocator: &Allocator,
+        device: &Device,
+        allocator: &mut Allocator,
         size: usize,
         usage: BufferUsageFlags,
     ) -> Result<VMABuffer, Error> {
         let buffer_info = BufferCreateInfo::builder()
             .size(size as u64)
             .sharing_mode(SharingMode::EXCLUSIVE)
-            .usage(usage);
+            .usage(usage)
+            .build();
 
-        let allocation_info = AllocationCreateInfo {
-            usage: MemoryUsage::AutoPreferDevice,
-            flags: AllocationCreateFlags::MAPPED
-                | AllocationCreateFlags::HOST_ACCESS_RANDOM
-                | AllocationCreateFlags::MAPPED,
-            ..Default::default()
+        let allocation_info = AllocationCreateDesc {
+            name: "Readback_Buffer_Memory",
+            requirements: MemoryRequirements::default(),
+            location: MemoryLocation::GpuToCpu,
+            linear: true,
+            allocation_scheme: AllocationScheme::GpuAllocatorManaged,
         };
 
-        Self::new(allocator, &buffer_info, &allocation_info)
+        Self::new(device, allocator, buffer_info, allocation_info)
     }
 
     /// Sets data on a mapped buffer.
@@ -162,22 +171,23 @@ impl VMABuffer {
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
+    /// let mut init = VkInit::new(Some(&window), Some(size), create_info)?;
     /// let size = 1024 * size_of::<usize>();
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
-    /// let buffer = init.create_cpu_to_gpu_buffer(size, usage).unwrap();
+    /// let buffer = init.create_cpu_to_gpu_buffer(size, usage)?;
     ///
     /// let data = [42_usize; 1024];
     /// let offset = 0;
-    /// buffer.set_data(offset, &data).unwrap();
+    /// buffer.set_data(offset, &data)?;
+    /// # Ok::<(), vku::Error>(())
     /// ```
 
     pub fn set_data<T>(&self, offset: usize, data: &[T]) -> Result<(), Error> {
-        if !self.is_mapped {
+        let Some(ptr) = self.allocation.mapped_ptr() else {
             return Err(Error::WriteAttemptToUnmappedBuffer);
-        }
+        };
 
-        let mut ptr = self.allocation_info.mapped_data as *mut T;
+        let mut ptr = ptr.as_ptr() as *mut T;
         unsafe {
             ptr = ptr.add(offset);
             ptr.copy_from_nonoverlapping(data.as_ptr(), data.len());
@@ -213,14 +223,15 @@ impl VMABuffer {
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
+    /// let mut init = VkInit::new(Some(&window), Some(size), create_info)?;
     /// let size = 2 * size_of::<u32>() + 1024 * size_of::<f32>();
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
-    /// let buffer = init.create_cpu_to_gpu_buffer(size, usage).unwrap();
+    /// let buffer = init.create_cpu_to_gpu_buffer(size, usage)?;
     ///
     /// let start_data = [4_u32, 2_u32];
     /// let data = [42.0; 1024];
-    /// buffer.set_data_with_start_data(&start_data, &data).unwrap();
+    /// buffer.set_data_with_start_data(&start_data, &data)?;
+    /// # Ok::<(), vku::Error>(())
     /// ```
 
     pub fn set_data_with_start_data<T, U>(
@@ -228,11 +239,11 @@ impl VMABuffer {
         start_data: &[U],
         data: &[T],
     ) -> Result<(), Error> {
-        if !self.is_mapped {
+        let Some(ptr) = self.allocation.mapped_ptr() else {
             return Err(Error::WriteAttemptToUnmappedBuffer);
-        }
+        };
 
-        let ptr = self.allocation_info.mapped_data as *mut U;
+        let ptr = ptr.as_ptr() as *mut U;
         unsafe {
             ptr.copy_from_nonoverlapping(start_data.as_ptr(), start_data.len());
 
@@ -261,21 +272,21 @@ impl VMABuffer {
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
+    /// let mut init = VkInit::new(Some(&window), Some(size), create_info)?;
     /// # let cmd_buffer_pool =
-    /// #    init.create_cmd_pool(CmdType::Any).unwrap();
+    /// #    init.create_cmd_pool(CmdType::Any)?;
     /// # let cmd_buffer =
-    /// #    init.create_command_buffers(&cmd_buffer_pool, 1).unwrap()[0];
-    /// # init.begin_cmd_buffer(&cmd_buffer).unwrap();
+    /// #    init.create_command_buffers(&cmd_buffer_pool, 1)?[0];
+    /// # init.begin_cmd_buffer(&cmd_buffer)?;
     /// let size = 1024 * size_of::<u32>();
     /// let src_usage = BufferUsageFlags::TRANSFER_SRC;
     /// let dst_usage = BufferUsageFlags::TRANSFER_DST;
-    /// let src_buffer = init.create_cpu_to_gpu_buffer(size, src_usage).unwrap();
-    /// let dst_buffer = init.create_cpu_to_gpu_buffer(size, dst_usage).unwrap();
+    /// let src_buffer = init.create_cpu_to_gpu_buffer(size, src_usage)?;
+    /// let dst_buffer = init.create_cpu_to_gpu_buffer(size, dst_usage)?;
     ///
     /// let data = [42_u32; 1024];
     /// let offset = 0;
-    /// src_buffer.set_data(offset, &data).unwrap();
+    /// src_buffer.set_data(offset, &data)?;
     ///
     /// src_buffer.enqueue_copy_to_buffer(
     ///     &init.device,
@@ -284,7 +295,8 @@ impl VMABuffer {
     ///     None,
     ///     None,
     ///     None
-    ///     ).unwrap();
+    ///     )?;
+    /// # Ok::<(), vku::Error>(())
     /// ```
 
     pub fn enqueue_copy_to_buffer(
@@ -298,7 +310,7 @@ impl VMABuffer {
     ) -> Result<(), Error> {
         let src_offset = src_offset.unwrap_or(0);
         let dst_offset = dst_offset.unwrap_or(0);
-        let size = size.unwrap_or(self.allocation_info.size - src_offset);
+        let size = size.unwrap_or(self.allocation.size() - src_offset);
 
         let buffer_copy_region = BufferCopy::builder()
             .src_offset(src_offset)
@@ -333,10 +345,10 @@ impl VMABuffer {
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
     /// # let create_info = VkInitCreateInfo::default();
-    /// let init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
+    /// let mut init = VkInit::new(Some(&window), Some(size), create_info)?;
     /// let size = 1024 * size_of::<u32>();
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
-    /// let buffer = init.create_cpu_to_gpu_buffer(size, usage).unwrap();
+    /// let buffer = init.create_cpu_to_gpu_buffer(size, usage)?;
     ///
     /// let barrier2 = buffer.get_barrier2(
     ///     PipelineStageFlags2::HOST,
@@ -347,6 +359,7 @@ impl VMABuffer {
     ///     None,
     ///     None
     ///     );
+    /// # Ok::<(), vku::Error>(())
     /// ```
     #[allow(clippy::too_many_arguments)]
 
@@ -362,7 +375,7 @@ impl VMABuffer {
     ) -> BufferMemoryBarrier2 {
         let src_queue = src_queue.unwrap_or(0);
         let dst_queue = dst_queue.unwrap_or(0);
-        let size = size.unwrap_or(self.allocation_info.size);
+        let size = size.unwrap_or(self.allocation.size());
 
         BufferMemoryBarrier2::builder()
             .buffer(self.buffer)
@@ -379,58 +392,62 @@ impl VMABuffer {
 
 impl VkInit {
     /// Shortcut - see [VMABuffer](VMABuffer::create_local_buffer) for example.
-
     pub fn create_local_buffer(
-        &self,
+        &mut self,
         size: usize,
         usage: BufferUsageFlags,
     ) -> Result<VMABuffer, Error> {
-        VMABuffer::create_local_buffer(&self.allocator, size, usage)
+        VMABuffer::create_local_buffer(&self.device, &mut self.allocator, size, usage)
     }
-    /// Shortcut - see [VMABuffer](VMABuffer::create_cpu_to_gpu_buffer) for example.
 
+    /// Shortcut - see [VMABuffer](VMABuffer::create_cpu_to_gpu_buffer) for example.
     pub fn create_cpu_to_gpu_buffer(
-        &self,
+        &mut self,
         size: usize,
         usage: BufferUsageFlags,
     ) -> Result<VMABuffer, Error> {
-        VMABuffer::create_cpu_to_gpu_buffer(&self.allocator, size, usage)
+        VMABuffer::create_cpu_to_gpu_buffer(&self.device, &mut self.allocator, size, usage)
     }
 
     pub fn create_readback_buffer(
-        &self,
+        &mut self,
         size: usize,
         usage: BufferUsageFlags,
     ) -> Result<VMABuffer, Error> {
-        VMABuffer::create_readback_buffer(&self.allocator, size, usage)
+        VMABuffer::create_readback_buffer(&self.device, &mut self.allocator, size, usage)
     }
 
     /// Shortcut - see [VMABuffer](VMABuffer::create_local_buffer) for example.
-
     pub fn create_local_buffers(
-        &self,
+        &mut self,
         size: usize,
         usage: BufferUsageFlags,
         count: usize,
     ) -> Result<Vec<VMABuffer>, Error> {
         let mut buffers = Vec::new();
         for _ in 0..count {
-            let buffer = VMABuffer::create_local_buffer(&self.allocator, size, usage)?;
+            let buffer =
+                VMABuffer::create_local_buffer(&self.device, &mut self.allocator, size, usage)?;
             buffers.push(buffer);
         }
         Ok(buffers)
     }
-    /// Shortcut - see [VMABuffer](VMABuffer::create_cpu_to_gpu_buffer) for example.
 
+    /// Shortcut - see [VMABuffer](VMABuffer::create_cpu_to_gpu_buffer) for example.
     pub fn create_cpu_to_gpu_buffers(
-        &self,
+        &mut self,
         size: usize,
         usage: BufferUsageFlags,
         count: usize,
     ) -> Result<Vec<VMABuffer>, Error> {
         let mut buffers = Vec::new();
         for _ in 0..count {
-            let buffer = VMABuffer::create_cpu_to_gpu_buffer(&self.allocator, size, usage)?;
+            let buffer = VMABuffer::create_cpu_to_gpu_buffer(
+                &self.device,
+                &mut self.allocator,
+                size,
+                usage,
+            )?;
             buffers.push(buffer);
         }
         Ok(buffers)

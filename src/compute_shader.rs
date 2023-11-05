@@ -175,9 +175,14 @@ impl VkInit {
             .layout(pipeline_layout);
 
         let pipeline = unsafe {
-            self.device
-                .create_compute_pipelines(PipelineCache::null(), &[*pipeline_info], None)
-                .unwrap()[0]
+            match self.device.create_compute_pipelines(
+                PipelineCache::null(),
+                &[*pipeline_info],
+                None,
+            ) {
+                Ok(pipeline) => pipeline[0],
+                Err((_, e)) => return Err(e.into()),
+            }
         };
         self.set_debug_object_name(
             pipeline.as_raw(),

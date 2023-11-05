@@ -6,6 +6,8 @@ unsafe impl Sync for Error {}
 
 #[derive(Error, Debug)]
 pub enum Error {
+    #[error("called function which requires a head on headless instance")]
+    HeadCallOnHeadlessInstance,
     #[error("no suitable GPU was found to create the physical device")]
     NoSuitableGPUFound,
     #[error("device extension was requested but is not supported. Extension: {0}")]
@@ -35,9 +37,6 @@ pub enum Error {
     #[error("vulkan entry could not be loaded: {0}")]
     AshLoadError(#[from] ash::LoadingError),
 
-    #[error("encountered an unknown error: {0}")]
-    Catch(Box<dyn std::error::Error>),
-
     #[error("utf8 error: {0}")]
     Utf8Error(#[from] Utf8Error),
 
@@ -46,10 +45,13 @@ pub enum Error {
 
     #[error("io error: {0}")]
     IOError(#[from] std::io::Error),
-}
 
-impl From<Box<dyn std::error::Error>> for Error {
-    fn from(value: Box<dyn std::error::Error>) -> Self {
-        Self::Catch(value)
-    }
+    #[error("gpu allocation error: {0}")]
+    GpuAllocError(#[from] gpu_allocator::AllocationError),
+
+    #[error("shaderc failed to initialize")]
+    ShaderCInitError,
+
+    #[error("encountered an unknown error: {0}")]
+    Catch(#[from] Box<dyn std::error::Error>),
 }
