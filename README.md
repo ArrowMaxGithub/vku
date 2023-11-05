@@ -59,8 +59,9 @@ vk_init.begin_cmd_buffer(&setup_cmd_buffer).unwrap();
 
 let extent = Extent3D{width: 100, height: 100, depth: 1};
 let format = Format::R8G8B8A8_UNORM;
+let format_bytes = 4;
 let aspect_flags = ImageAspectFlags::COLOR;
-let mut image = vk_init.create_empty_image(extent, format, aspect_flags).unwrap();
+let mut image = vk_init.create_empty_image(extent, format, format_bytes, aspect_flags).unwrap();
 
 let image_barrier = image.get_image_layout_transition_barrier2(
     ImageLayout::TRANSFER_DST_OPTIMAL,

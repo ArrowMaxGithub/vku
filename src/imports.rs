@@ -14,9 +14,10 @@ pub(crate) use std::{
     mem::size_of,
     result::Result,
 };
-pub(crate) use vma::{
-    Allocation, AllocationCreateFlags, AllocationCreateInfo, AllocationInfo, Allocator, MemoryUsage,
+pub(crate) use gpu_allocator::vulkan::{
+    Allocation, AllocationCreateDesc, Allocator,
 };
+pub(crate) use gpu_allocator::MemoryLocation;
 pub(crate) fn char_array_to_string(chars: &[i8; 256]) -> Result<String, Error> {
     let string_raw = unsafe { CStr::from_ptr(chars.as_ptr()) };
     let string = string_raw.to_str()?;

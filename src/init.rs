@@ -1,7 +1,6 @@
-use std::mem::ManuallyDrop;
-
+use gpu_allocator::{AllocatorDebugSettings, AllocationSizes};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
-use vma::AllocatorCreateInfo;
+use gpu_allocator::vulkan::AllocatorCreateDesc;
 
 use crate::create_info::VkInitCreateInfo;
 use crate::{imports::*, VMAImage};
@@ -14,8 +13,8 @@ use crate::{imports::*, VMAImage};
 /// - Optionally exposed dedicated compute and transfer queues
 /// - Shortcuts for present and submit operations
 pub struct VkInit {
-    /// [VMA](vma::Allocator) allocator
-    pub allocator: ManuallyDrop<Allocator>,
+    /// [GPU-Allocator](gpu-allocator::vulkan::Allocator)
+    pub allocator: Allocator,
     pub entry: Entry,
     pub instance: Instance,
     /// Only created with enabled validation
@@ -158,7 +157,7 @@ impl VkInit {
                 &physical_device_info,
                 &create_info,
             )?;
-            let allocator = Self::create_allocator(&instance, &physical_device, &device)?;
+            let mut allocator = Self::create_allocator(&instance, &physical_device, &device)?;
             let (unified_queue, transfer_queue, compute_queue) =
                 Self::create_queues(&device, &physical_device_info)?;
 
@@ -167,7 +166,7 @@ impl VkInit {
             {
                 Some(Self::create_head(
                     &device,
-                    &allocator,
+                    &mut allocator,
                     &entry,
                     &instance,
                     display_handle,
@@ -250,7 +249,7 @@ impl VkInit {
                     Self::set_debug_object_name_static(
                         dbg,
                         &device,
-                        head.depth_image.allocation_info.device_memory.as_raw(),
+                        head.depth_image.allocation.memory().as_raw(),
                         ObjectType::DEVICE_MEMORY,
                         "VKU_DepthImage_Memory".to_string(),
                     )?;
@@ -278,7 +277,7 @@ impl VkInit {
             }
 
             Ok(Self {
-                allocator: ManuallyDrop::new(allocator),
+                allocator,
                 entry,
                 instance,
                 debug_loader,
@@ -305,13 +304,11 @@ impl VkInit {
                 head.swapchain_loader
                     .destroy_swapchain(head.swapchain, None);
                 head.surface_loader.destroy_surface(head.surface, None);
-                head.depth_image.destroy(&self.device, &self.allocator)?;
+                head.depth_image.destroy(&self.device, &mut self.allocator)?;
             }
             if let Some(dbg_loader) = &self.debug_loader {
                 dbg_loader.destroy_debug_utils_messenger(self.debug_messenger.unwrap(), None);
             }
-
-            ManuallyDrop::drop(&mut self.allocator);
 
             self.device.destroy_device(None);
             // self.instance.destroy_instance(None); seg faults for no apparant reason
@@ -994,8 +991,15 @@ impl VkInit {
         physical_device: &PhysicalDevice,
         device: &Device,
     ) -> Result<Allocator, Error> {
-        let create_info = AllocatorCreateInfo::new(instance, device, *physical_device);
-        let allocator = vma::Allocator::new(create_info)?;
+        let create_info = AllocatorCreateDesc{
+            instance: instance.clone(),
+            device: device.clone(),
+            physical_device: *physical_device,
+            debug_settings: AllocatorDebugSettings { log_memory_information: false, log_leaks_on_shutdown: true, store_stack_traces: false, log_allocations: false, log_frees: false, log_stack_traces: false },
+            buffer_device_address: false,
+            allocation_sizes: AllocationSizes::default(),
+        };
+        let allocator = Allocator::new(&create_info)?;
         Ok(allocator)
     }
 
@@ -1146,7 +1150,7 @@ impl VkInit {
 
     pub(crate) unsafe fn create_depth_image(
         device: &Device,
-        allocator: &Allocator,
+        allocator: &mut Allocator,
         window_size: [u32; 2],
         format: Format,
         sizeof: usize,
@@ -1165,7 +1169,7 @@ impl VkInit {
     #[allow(clippy::too_many_arguments)]
     pub(crate) unsafe fn create_head(
         device: &Device,
-        allocator: &Allocator,
+        allocator: &mut Allocator,
         entry: &Entry,
         instance: &Instance,
         display_handle: RawDisplayHandle,
@@ -1234,7 +1238,7 @@ impl VkInit {
 
                 self.head = Some(Self::create_head(
                     &self.device,
-                    &self.allocator,
+                    &mut self.allocator,
                     &self.entry,
                     &self.instance,
                     display_h,

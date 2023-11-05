@@ -28,7 +28,7 @@ impl VkInit {
                 .destroy_swapchain(head.swapchain, None);
 
             //Destroy depth image
-            head.depth_image.destroy(&self.device, &self.allocator)?;
+            head.depth_image.destroy(&self.device, &mut self.allocator)?;
 
             //destroy surface
             head.surface_loader.destroy_surface(head.surface, None);
@@ -79,7 +79,7 @@ impl VkInit {
             };
             head.depth_image = VMAImage::create_depth_image(
                 &self.device,
-                &self.allocator,
+                &mut self.allocator,
                 extent,
                 head.depth_format,
                 head.depth_format_sizeof,

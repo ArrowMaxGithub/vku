@@ -46,6 +46,9 @@ pub enum Error {
 
     #[error("io error: {0}")]
     IOError(#[from] std::io::Error),
+
+    #[error("gpu allocation error: {0}")]
+    GpuAllocError(#[from] gpu_allocator::AllocationError),
 }
 
 impl From<Box<dyn std::error::Error>> for Error {
