@@ -108,14 +108,15 @@ impl VMAImage {
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
     /// # let create_info = VkInitCreateInfo::default();
-    /// let mut init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
+    /// let mut init = VkInit::new(Some(&window), Some(size), create_info)?;
     ///
     /// let extent = Extent3D{width: 100, height: 100, depth: 1};
     /// let format = Format::R8G8B8A8_UNORM;
     /// let format_bytes = 4;
     /// let aspect_flags = ImageAspectFlags::COLOR;
     ///
-    /// let image = init.create_empty_image(extent, format, format_bytes, aspect_flags).unwrap();
+    /// let image = init.create_empty_image(extent, format, format_bytes, aspect_flags)?;
+    /// # Ok::<(), vku::Error>(())
 
     pub fn create_empty_image(
         device: &Device,
@@ -265,15 +266,16 @@ impl VMAImage {
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
     /// # let create_info = VkInitCreateInfo::default();
-    /// # let mut init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
+    /// # let mut init = VkInit::new(Some(&window), Some(size), create_info)?;
     /// let extent = Extent3D{width: 100, height: 100, depth: 1};
     /// let format = Format::R8G8B8A8_UNORM;
     /// let format_bytes = 4;
     /// let aspect_flags = ImageAspectFlags::COLOR;
-    /// let image = init.create_empty_image(extent, format, format_bytes, aspect_flags).unwrap();
+    /// let image = init.create_empty_image(extent, format, format_bytes, aspect_flags)?;
     /// let data = [42_u32; 100*100];
     ///
-    /// image.set_staging_data(&data).unwrap();
+    /// image.set_staging_data(&data)?;
+    /// # Ok::<(), vku::Error>(())
 
     pub fn set_staging_data<T>(&self, data: &[T]) -> Result<(), Error>
     where
@@ -293,24 +295,24 @@ impl VMAImage {
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
     /// # let create_info = VkInitCreateInfo::default();
-    /// # let mut init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
+    /// # let mut init = VkInit::new(Some(&window), Some(size), create_info)?;
     /// # let setup_cmd_buffer_pool =
-    /// #     init.create_cmd_pool(CmdType::Any).unwrap();
+    /// #     init.create_cmd_pool(CmdType::Any)?;
     /// # let setup_cmd_buffer =
-    /// #     init.create_command_buffers(&setup_cmd_buffer_pool, 1).unwrap()[0];
-    /// # let setup_fence = init.create_fence().unwrap();
-    /// # init.begin_cmd_buffer(&setup_cmd_buffer).unwrap();
+    /// #     init.create_command_buffers(&setup_cmd_buffer_pool, 1)?[0];
+    /// # let setup_fence = init.create_fence()?;
+    /// # init.begin_cmd_buffer(&setup_cmd_buffer)?;
     /// # let extent = Extent3D{width: 100, height: 100, depth: 1};
     /// # let format = Format::R8G8B8A8_UNORM;
     /// # let format_bytes = 4;
     /// # let aspect_flags = ImageAspectFlags::COLOR;
-    /// let mut image = init.create_empty_image(extent, format, format_bytes, aspect_flags).unwrap();
+    /// let mut image = init.create_empty_image(extent, format, format_bytes, aspect_flags)?;
     ///
     /// let image_barrier = image.get_image_layout_transition_barrier2(
     ///     ImageLayout::TRANSFER_DST_OPTIMAL,
     ///     None,
     ///     None,
-    ///     ).unwrap();
+    ///     )?;
     ///
     /// init.cmd_pipeline_barrier2(
     ///     &setup_cmd_buffer,
@@ -319,7 +321,7 @@ impl VMAImage {
     ///     );
     ///
     /// let data = [42_u32; 100*100];
-    /// image.set_staging_data(&data).unwrap();
+    /// image.set_staging_data(&data)?;
     /// image.enque_copy_from_staging_buffer_to_image(&init.device, &setup_cmd_buffer);
     ///
     /// init.end_and_submit_cmd_buffer(
@@ -329,7 +331,8 @@ impl VMAImage {
     ///     &[],
     ///     &[],
     ///     &[],    
-    /// ).unwrap();
+    /// )?;
+    /// # Ok::<(), vku::Error>(())
     /// ```
 
     pub fn enque_copy_from_staging_buffer_to_image(

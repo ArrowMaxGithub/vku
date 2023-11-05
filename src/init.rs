@@ -65,9 +65,10 @@ pub struct Head {
 /// # let size = [800_u32, 600_u32];
 /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
 /// # let create_info = VkInitCreateInfo::default();
-/// let init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
+/// let init = VkInit::new(Some(&window), Some(size), create_info)?;
 ///
 /// let (compute_queue, compute_queue_family_index) = init.get_queue(CmdType::Compute);
+/// # Ok::<(), vku::Error>(())
 pub enum CmdType {
     /// Graphics | Transfer | Compute
     Any,
@@ -127,7 +128,8 @@ impl VkInit {
     ///     .build(&event_loop).unwrap();
     /// let create_info = VkInitCreateInfo::default();
     ///
-    /// let init = VkInit::new(Some(&window), Some(size), create_info).unwrap();
+    /// let init = VkInit::new(Some(&window), Some(size), create_info)?;
+    /// # Ok::<(), vku::Error>(())
     /// ```
 
     pub fn new<T: HasRawDisplayHandle + HasRawWindowHandle>(
@@ -312,7 +314,9 @@ impl VkInit {
                     .destroy(&self.device, &mut self.allocator)?;
             }
             if let Some(dbg_loader) = &self.debug_loader {
-                dbg_loader.destroy_debug_utils_messenger(self.debug_messenger.unwrap(), None);
+                if let Some(dbg_msg) = self.debug_messenger {
+                    dbg_loader.destroy_debug_utils_messenger(dbg_msg, None);
+                }
             }
 
             ManuallyDrop::drop(&mut self.allocator);
@@ -474,7 +478,9 @@ impl VkInit {
         &self,
         acquire_img_semaphore: Semaphore,
     ) -> Result<(usize, Image, ImageView, bool), Error> {
-        let head = self.head.as_ref().unwrap();
+        let Some(head) = self.head.as_ref() else {
+            return Err(Error::HeadCallOnHeadlessInstance);
+        };
         let (index, sub_optimal) = unsafe {
             head.swapchain_loader.acquire_next_image(
                 head.swapchain,
@@ -505,8 +511,14 @@ impl VkInit {
         Ok(())
     }
 
-    pub fn begin_rendering(&self, swapchain_image_view: &ImageView, cmd_buffer: &CommandBuffer) {
-        let head = self.head.as_ref().unwrap();
+    pub fn begin_rendering(
+        &self,
+        swapchain_image_view: &ImageView,
+        cmd_buffer: &CommandBuffer,
+    ) -> Result<(), Error> {
+        let Some(head) = self.head.as_ref() else {
+            return Err(Error::HeadCallOnHeadlessInstance);
+        };
 
         let clear_color_value = ClearValue {
             color: head.clear_color_value,
@@ -545,6 +557,8 @@ impl VkInit {
             self.device
                 .cmd_begin_rendering(*cmd_buffer, &rendering_begin_info);
         }
+
+        Ok(())
     }
 
     pub fn end_rendering(&self, cmd_buffer: &CommandBuffer) {
@@ -631,7 +645,9 @@ impl VkInit {
         rendering_complete_semaphore: &Semaphore,
         frame: usize,
     ) -> Result<(), Error> {
-        let head = self.head.as_ref().unwrap();
+        let Some(head) = self.head.as_ref() else {
+            return Err(Error::HeadCallOnHeadlessInstance);
+        };
         let swapchains = [head.swapchain];
         let image_indices = [frame as u32];
         let wait_sems = [*rendering_complete_semaphore];
@@ -672,19 +688,11 @@ impl VkInit {
                 self.physical_device_info.unified_queue_family_index,
             ),
             CmdType::Transfer => {
-                //TODO: Implement as if-let chains once stabilized
-                if self
-                    .physical_device_info
-                    .transfer_queue_family_index
-                    .is_some()
-                    && self.transfer_queue.is_some()
-                {
-                    (
-                        self.transfer_queue.unwrap(),
-                        self.physical_device_info
-                            .transfer_queue_family_index
-                            .unwrap(),
-                    )
+                if let (Some(queue), Some(index)) = (
+                    self.transfer_queue,
+                    self.physical_device_info.transfer_queue_family_index,
+                ) {
+                    (queue, index)
                 } else {
                     (
                         self.unified_queue,
@@ -693,19 +701,11 @@ impl VkInit {
                 }
             }
             CmdType::Compute => {
-                //TODO: Implement as if-let chains once stabilized
-                if self
-                    .physical_device_info
-                    .compute_queue_family_index
-                    .is_some()
-                    && self.compute_queue.is_some()
-                {
-                    (
-                        self.compute_queue.unwrap(),
-                        self.physical_device_info
-                            .compute_queue_family_index
-                            .unwrap(),
-                    )
+                if let (Some(queue), Some(index)) = (
+                    self.compute_queue,
+                    self.physical_device_info.compute_queue_family_index,
+                ) {
+                    (queue, index)
                 } else {
                     (
                         self.unified_queue,
@@ -767,7 +767,7 @@ impl VkInit {
                 .enabled_validation_layers
                 .iter()
                 .filter(|layer| supported_layers.contains(*layer))
-                .map(|s| CString::new(s.clone()).unwrap())
+                .filter_map(|s| CString::new(s.clone()).ok())
                 .collect();
 
             let enabled_layers_names_ptr: Vec<*const i8> = enabled_layers_names_c_strings
@@ -928,9 +928,8 @@ impl VkInit {
         physical_device_info: &PhysicalDeviceInfo,
         create_info: &VkInitCreateInfo,
     ) -> Result<Device, Error> {
-        let supported_extensions = instance
-            .enumerate_device_extension_properties(*physical_device)
-            .unwrap();
+        let supported_extensions =
+            instance.enumerate_device_extension_properties(*physical_device)?;
 
         let mut enabled_extensions_raw: Vec<*const i8> = create_info
             .additional_device_extensions
@@ -949,7 +948,7 @@ impl VkInit {
                 Some(_) => continue,
                 None => {
                     return Err(Error::RequiredDeviceExtensionNotSupported(
-                        ext_name.to_str().unwrap().to_string(),
+                        ext_name.to_str()?.to_string(),
                     ))
                 }
             }

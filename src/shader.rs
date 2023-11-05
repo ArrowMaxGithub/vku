@@ -30,9 +30,9 @@ pub fn compile_all_shaders(
     remove_dir_all(target_dir_path);
     create_dir_all(target_dir_path)?;
 
-    let compiler = shaderc::Compiler::new().unwrap();
+    let compiler = shaderc::Compiler::new().ok_or(Error::ShaderCInitError)?;
 
-    let mut compiler_options = shaderc::CompileOptions::new().unwrap();
+    let mut compiler_options = shaderc::CompileOptions::new().ok_or(Error::ShaderCInitError)?;
     if debug {
         compiler_options.set_optimization_level(shaderc::OptimizationLevel::Zero);
         compiler_options.set_generate_debug_info();
@@ -46,8 +46,12 @@ pub fn compile_all_shaders(
     for entry in shaders_dir {
         let shader_entry = entry?;
         let path = shader_entry.path();
-        let extension = path.extension();
-        let file_type_string = extension.unwrap().to_str().unwrap();
+        let Some(extension) = path.extension() else {
+            continue;
+        };
+        let Some(file_type_string) = extension.to_str() else {
+            continue;
+        };
         if file_type_string == "glsl" {
             continue;
         }
@@ -58,19 +62,20 @@ pub fn compile_all_shaders(
             _ => Err(Error::UnknownShaderFileExtension),
         }?;
 
+        let Some(shader_name) = path.file_name() else {
+            continue;
+        };
+        let Some(shader_ext) = path.extension() else {
+            continue;
+        };
+
         let shader_src = read_to_string(&path)?;
-        let shader_name = path
-            .file_name()
-            .unwrap()
-            .to_ascii_lowercase()
-            .into_string()
-            .unwrap();
-        let shader_ext = path
-            .extension()
-            .unwrap()
-            .to_ascii_lowercase()
-            .into_string()
-            .unwrap();
+        let Ok(shader_name) = shader_name.to_ascii_lowercase().into_string() else {
+            continue;
+        };
+        let Ok(shader_ext) = shader_ext.to_ascii_lowercase().into_string() else {
+            continue;
+        };
 
         compile_shader(
             shader_src,
@@ -96,9 +101,9 @@ pub fn shader_ad_hoc(
     shader_ext: &str,
     debug: bool,
 ) -> Result<CompilationArtifact, Error> {
-    let compiler = shaderc::Compiler::new().unwrap();
+    let compiler = shaderc::Compiler::new().ok_or(Error::ShaderCInitError)?;
 
-    let mut compiler_options = shaderc::CompileOptions::new().unwrap();
+    let mut compiler_options = shaderc::CompileOptions::new().ok_or(Error::ShaderCInitError)?;
     if debug {
         compiler_options.set_optimization_level(shaderc::OptimizationLevel::Zero);
         compiler_options.set_generate_debug_info();
@@ -217,7 +222,10 @@ fn shader_include_callback(
 ) -> shaderc::IncludeCallbackResult {
     trace!("Including file {src_path:?} for shader {dst_name:?}");
 
-    let res_content = read_to_string(src_path).unwrap();
+    let res_content = match read_to_string(src_path) {
+        Ok(c) => c,
+        Err(e) => return shaderc::IncludeCallbackResult::Err(e.to_string()),
+    };
 
     let res_include = shaderc::ResolvedInclude {
         resolved_name: src_path.to_string(),

@@ -15,10 +15,14 @@ impl VkInit {
     ) -> Result<(), Error> {
         unsafe {
             trace!("Resizing swapchain");
+
+            let Some(head) = self.head.as_mut() else {
+                return Err(Error::HeadCallOnHeadlessInstance);
+            };
+
             let display_h = window.raw_display_handle();
             let window_h = window.raw_window_handle();
 
-            let head = self.head.as_mut().unwrap();
             self.device.device_wait_idle()?;
 
             //destroy swapchain
