@@ -2,7 +2,7 @@ use gpu_allocator::vulkan::AllocationScheme;
 
 use crate::{imports::*, VkInit};
 
-/// VMA-allocated buffer, allocation and allocation information.
+/// Allocated buffer, allocation and allocation information.
 pub struct VMABuffer {
     pub buffer: Buffer,
     pub allocation: Allocation,

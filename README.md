@@ -3,7 +3,7 @@
 <img alt="Crates.io" src="https://img.shields.io/crates/l/vku">
 
 # VKU
-Work in progress utility crate for kickstarting vulkan development with [shaderc](https://docs.rs/shaderc/), [ash](https://docs.rs/ash/) and the [VMA](https://docs.rs/vma/) allocator.
+Work in progress utility crate for kickstarting vulkan development with [shaderc](https://docs.rs/shaderc/), [ash](https://docs.rs/ash/) and the [gpu-allocator](https://docs.rs/gpu-allocator/).
 
 Center module is [Vkinit](crate::init::VkInit), created from [RawHandles](https://docs.rs/raw-window-handle/) and [VkInitCreateInfo](crate::create_info::VkInitCreateInfo).
 
@@ -48,7 +48,7 @@ fn main() -> Result<(), vku::Error>{
 }
 ```
 
- ## VMA Image allocation and tracked layout transitions:
+ ## Managed Image allocation and tracked layout transitions:
 ```rust,no_run
 use vku::{VkInit, CmdType};
 use ash::vk::{Extent3D, Format, ImageAspectFlags, ImageLayout};

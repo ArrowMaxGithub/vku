@@ -2,7 +2,7 @@ use gpu_allocator::vulkan::AllocationScheme;
 
 use crate::{image_layout_transitions, imports::*, vma_buffer::VMABuffer, VkInit};
 
-/// VMA-allocated image, image information, image view, allocation and allocation information.
+/// Allocated image, image information, image view, allocation and allocation information.
 ///
 /// Includes a host-visible staging buffer
 pub struct VMAImage {

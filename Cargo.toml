@@ -6,7 +6,7 @@ authors = ["Maximillian Pfeil <pfeil.maximillian@gmail.com>"]
 description = "Utility crate for kickstarting vulkan development"
 repository = "https://github.com/ArrowMaxGithub/vku"
 license = "MIT OR Apache-2.0"
-keywords = ["vku", "vulkan", "ash", "vma", "shaderc"]
+keywords = ["vku", "vulkan", "ash", "gpu-allocator", "shaderc"]
 categories = ["api-bindings", "graphics", "rendering"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
