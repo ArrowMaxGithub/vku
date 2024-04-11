@@ -1,17 +1,16 @@
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 
-use crate::{imports::*, VMAImage, VkInit};
+use crate::{create_info::WindowOptions, imports::*, VMAImage, VkInit};
 
-impl VkInit {
+impl<'a> VkInit<'a> {
     /// Utility function to recreate the swapchain, swapchain images and image views.
     ///
     /// Function waits for device_wait_idle before destroying the swapchain.
     /// Images must be transitioned to the appropriate image layout after recreation.
 
-    pub fn on_resize<T: HasRawDisplayHandle + HasRawWindowHandle>(
+    pub fn on_resize<T: HasDisplayHandle + HasWindowHandle>(
         &mut self,
-        window: &T,
-        new_size: [u32; 2],
+        window_options: WindowOptions<T>,
     ) -> Result<(), Error> {
         unsafe {
             trace!("Resizing swapchain");
@@ -20,16 +19,14 @@ impl VkInit {
                 return Err(Error::HeadCallOnHeadlessInstance);
             };
 
-            let display_h = window.raw_display_handle();
-            let window_h = window.raw_window_handle();
-
             self.device.device_wait_idle()?;
 
             //destroy swapchain
             for image_view in &head.swapchain_image_views {
                 self.device.destroy_image_view(*image_view, None);
             }
-            head.swapchain_loader
+            self.fn_loader
+                .swapchain_device()?
                 .destroy_swapchain(head.swapchain, None);
 
             //Destroy depth image
@@ -37,50 +34,48 @@ impl VkInit {
                 .destroy(&self.device, &mut self.allocator)?;
 
             //destroy surface
-            head.surface_loader.destroy_surface(head.surface, None);
+            self.fn_loader
+                .surface_instance()?
+                .destroy_surface(head.surface, None);
 
             //recreate surface
-            let (surface_loader, surface, surface_info) = Self::create_surface(
+            let (surface, surface_info) = Self::create_surface(
+                &self.fn_loader,
                 &self.entry,
                 &self.instance,
-                display_h,
-                window_h,
-                new_size,
                 &self.physical_device,
                 &self.create_info,
+                &window_options,
             )?;
-            head.surface_loader = surface_loader;
             head.surface = surface;
             head.surface_info = surface_info;
 
             //recreate swapchain
-            let (swapchain_loader, swapchain) = Self::create_swapchain(
-                &self.instance,
-                &self.device,
+            let swapchain = Self::create_swapchain(
+                &self.fn_loader,
                 &head.surface,
                 &head.surface_info,
-                new_size,
+                window_options.size,
             )?;
             let (swapchain_images, swapchain_image_views) = Self::create_swapchain_images(
+                &self.fn_loader,
                 &self.device,
-                &swapchain_loader,
                 &swapchain,
                 &head.surface_info,
             )?;
 
-            head.swapchain_loader = swapchain_loader;
             head.swapchain = swapchain;
             head.swapchain_images = swapchain_images;
             head.swapchain_image_views = swapchain_image_views;
             head.surface_info.current_extent = Extent2D {
-                width: new_size[0],
-                height: new_size[1],
+                width: window_options.size[0],
+                height: window_options.size[1],
             };
 
             //recreate depth image
             let extent = Extent3D {
-                width: new_size[0],
-                height: new_size[1],
+                width: window_options.size[0],
+                height: window_options.size[1],
                 depth: 1,
             };
             head.depth_image = VMAImage::create_depth_image(

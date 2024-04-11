@@ -9,6 +9,13 @@ use std::result::Result;
 use crate::Error;
 use crate::VkInit;
 
+pub struct DescriptorInfo {
+    pub is_dynamic: bool,
+    pub ty: DescriptorType,
+    pub stages: ShaderStageFlags,
+    pub count: u32,
+}
+
 pub struct VKUPipeline {
     pub set_layout: DescriptorSetLayout,
     pub renderpass: RenderPass,
@@ -16,8 +23,8 @@ pub struct VKUPipeline {
     pub pipeline: Pipeline,
 }
 
-impl VKUPipeline {
-    pub fn builder() -> VKUPipelineBuilder {
+impl<'a> VKUPipeline {
+    pub fn builder() -> VKUPipelineBuilder<'a> {
         VKUPipelineBuilder::default()
     }
 
@@ -34,7 +41,7 @@ impl VKUPipeline {
 }
 
 #[derive(Default)]
-pub struct VKUPipelineBuilder {
+pub struct VKUPipelineBuilder<'a> {
     pipeline_stages: Vec<(
         ShaderStageFlags,
         ShaderModule,
@@ -55,55 +62,49 @@ pub struct VKUPipelineBuilder {
     pipeline_dynamic: Vec<DynamicState>,
     pipeline_layout: (
         Vec<DescriptorBindingFlags>,
-        Vec<DescriptorSetLayoutBinding>,
+        Vec<DescriptorSetLayoutBinding<'a>>,
         Vec<PushConstantRange>,
     ),
     pipeline_renderpass: (
         Vec<AttachmentDescription>,
-        Vec<SubpassDescription>,
+        Vec<SubpassDescription<'a>>,
         Vec<SubpassDependency>,
     ),
 }
 
-impl VKUPipelineBuilder {
+impl<'a> VKUPipelineBuilder<'a> {
     pub fn build(self, vk_init: &VkInit, base_name: &str) -> Result<VKUPipeline, Error> {
         let (bindings, attribs) = self.pipeline_vertex_input;
-        let pipeline_vertex_input = PipelineVertexInputStateCreateInfo::builder()
+        let pipeline_vertex_input = PipelineVertexInputStateCreateInfo::default()
             .vertex_binding_descriptions(&bindings)
-            .vertex_attribute_descriptions(&attribs)
-            .build();
+            .vertex_attribute_descriptions(&attribs);
 
         let topology = self.pipeline_input_assembly;
-        let pipeline_input_assembly = PipelineInputAssemblyStateCreateInfo::builder()
-            .topology(topology)
-            .build();
+        let pipeline_input_assembly =
+            PipelineInputAssemblyStateCreateInfo::default().topology(topology);
 
         let patch_control_points = self.pipeline_tesselation;
-        let pipeline_tesselation = PipelineTessellationStateCreateInfo::builder()
-            .patch_control_points(patch_control_points)
-            .build();
+        let pipeline_tesselation = PipelineTessellationStateCreateInfo::default()
+            .patch_control_points(patch_control_points);
 
         let (viewports, scissors) = self.pipeline_viewport;
-        let pipeline_viewport = PipelineViewportStateCreateInfo::builder()
+        let pipeline_viewport = PipelineViewportStateCreateInfo::default()
             .viewports(&viewports)
-            .scissors(&scissors)
-            .build();
+            .scissors(&scissors);
 
         let (polygon_mode, cull_mode) = self.pipeline_rasterization;
-        let pipeline_rasterization = PipelineRasterizationStateCreateInfo::builder()
+        let pipeline_rasterization = PipelineRasterizationStateCreateInfo::default()
             .polygon_mode(polygon_mode)
             .cull_mode(cull_mode)
             .front_face(FrontFace::COUNTER_CLOCKWISE)
-            .line_width(1.0)
-            .build();
+            .line_width(1.0);
 
         let samples = self.pipeline_multisample;
-        let pipeline_multisample = PipelineMultisampleStateCreateInfo::builder()
-            .rasterization_samples(samples)
-            .build();
+        let pipeline_multisample =
+            PipelineMultisampleStateCreateInfo::default().rasterization_samples(samples);
 
         let (depth_info, stencil_info) = self.pipeline_depthstencil;
-        let pipeline_depthstencil = PipelineDepthStencilStateCreateInfo::builder()
+        let pipeline_depthstencil = PipelineDepthStencilStateCreateInfo::default()
             .depth_test_enable(depth_info.test)
             .depth_write_enable(depth_info.write)
             .depth_compare_op(depth_info.comp_op)
@@ -111,27 +112,23 @@ impl VKUPipelineBuilder {
             .max_depth_bounds(depth_info.max_depth)
             .stencil_test_enable(stencil_info.test)
             .front(stencil_info.front)
-            .back(stencil_info.back)
-            .build();
+            .back(stencil_info.back);
 
         let attachments = self.pipeline_colorblend;
-        let pipeline_colorblend = PipelineColorBlendStateCreateInfo::builder()
-            .attachments(&attachments)
-            .build();
+        let pipeline_colorblend =
+            PipelineColorBlendStateCreateInfo::default().attachments(&attachments);
 
         let dynamic_states = self.pipeline_dynamic;
-        let pipeline_dynamic = PipelineDynamicStateCreateInfo::builder()
-            .dynamic_states(&dynamic_states)
-            .build();
+        let pipeline_dynamic =
+            PipelineDynamicStateCreateInfo::default().dynamic_states(&dynamic_states);
 
         let spec_infos: Vec<SpecializationInfo> = self
             .pipeline_stages
             .iter()
             .map(|(_, _, data, map_entries)| {
-                SpecializationInfo::builder()
+                SpecializationInfo::default()
                     .map_entries(map_entries)
                     .data(data)
-                    .build()
             })
             .collect();
 
@@ -141,20 +138,18 @@ impl VKUPipelineBuilder {
             .iter()
             .zip(spec_infos.iter())
             .map(|((stage, module, _, _), info)| {
-                PipelineShaderStageCreateInfo::builder()
+                PipelineShaderStageCreateInfo::default()
                     .stage(*stage)
                     .module(*module)
                     .specialization_info(info)
                     .name(&entry_name)
-                    .build()
             })
             .collect();
 
         let (update_after_bind, bindings, push_constant_ranges) = self.pipeline_layout;
 
-        let mut desc_set_binding_flags = DescriptorSetLayoutBindingFlagsCreateInfo::builder()
-            .binding_flags(&update_after_bind)
-            .build();
+        let mut desc_set_binding_flags =
+            DescriptorSetLayoutBindingFlagsCreateInfo::default().binding_flags(&update_after_bind);
 
         let flags = if update_after_bind
             .iter()
@@ -166,11 +161,10 @@ impl VKUPipelineBuilder {
         };
 
         let set_layouts = {
-            let create_info = DescriptorSetLayoutCreateInfo::builder()
+            let create_info = DescriptorSetLayoutCreateInfo::default()
                 .bindings(&bindings)
                 .flags(flags)
-                .push_next(&mut desc_set_binding_flags)
-                .build();
+                .push_next(&mut desc_set_binding_flags);
 
             unsafe {
                 vec![vk_init
@@ -180,26 +174,24 @@ impl VKUPipelineBuilder {
         };
 
         let layout = {
-            let create_info = PipelineLayoutCreateInfo::builder()
+            let create_info = PipelineLayoutCreateInfo::default()
                 .set_layouts(&set_layouts)
-                .push_constant_ranges(&push_constant_ranges)
-                .build();
+                .push_constant_ranges(&push_constant_ranges);
 
             unsafe { vk_init.device.create_pipeline_layout(&create_info, None)? }
         };
 
         let (attachments, subpasses, dependencies) = self.pipeline_renderpass;
         let renderpass = {
-            let create_info = RenderPassCreateInfo::builder()
+            let create_info = RenderPassCreateInfo::default()
                 .attachments(&attachments)
                 .subpasses(&subpasses)
-                .dependencies(&dependencies)
-                .build();
+                .dependencies(&dependencies);
 
             unsafe { vk_init.device.create_render_pass(&create_info, None)? }
         };
 
-        let pipeline_create_info = GraphicsPipelineCreateInfo::builder()
+        let pipeline_create_info = GraphicsPipelineCreateInfo::default()
             .vertex_input_state(&pipeline_vertex_input)
             .input_assembly_state(&pipeline_input_assembly)
             .tessellation_state(&pipeline_tesselation)
@@ -212,8 +204,7 @@ impl VKUPipelineBuilder {
             .stages(&pipeline_stages)
             .layout(layout)
             .render_pass(renderpass)
-            .subpass(0)
-            .build();
+            .subpass(0);
 
         let pipeline = unsafe { Self::create_pipeline(vk_init, &[pipeline_create_info])? };
 
@@ -221,26 +212,10 @@ impl VKUPipelineBuilder {
             unsafe { vk_init.device.destroy_shader_module(module, None) }
         }
 
-        vk_init.set_debug_object_name(
-            set_layouts[0].as_raw(),
-            ObjectType::DESCRIPTOR_SET_LAYOUT,
-            format!("{base_name}_Desc_Set_Layout"),
-        )?;
-        vk_init.set_debug_object_name(
-            layout.as_raw(),
-            ObjectType::PIPELINE_LAYOUT,
-            format!("{base_name}_Pipeline_Layout"),
-        )?;
-        vk_init.set_debug_object_name(
-            pipeline.as_raw(),
-            ObjectType::PIPELINE,
-            format!("{base_name}_Pipeline"),
-        )?;
-        vk_init.set_debug_object_name(
-            renderpass.as_raw(),
-            ObjectType::RENDER_PASS,
-            format!("{base_name}_Renderpass"),
-        )?;
+        vk_init.set_debug_object_name(set_layouts[0], format!("{base_name}_Desc_Set_Layout"))?;
+        vk_init.set_debug_object_name(layout, format!("{base_name}_Pipeline_Layout"))?;
+        vk_init.set_debug_object_name(pipeline, format!("{base_name}_Pipeline"))?;
+        vk_init.set_debug_object_name(renderpass, format!("{base_name}_Renderpass"))?;
 
         Ok(VKUPipeline {
             set_layout: set_layouts[0],
@@ -262,10 +237,9 @@ impl VKUPipelineBuilder {
 
             let spirv = read_spv(&mut file)?;
 
-            let create_info = ShaderModuleCreateInfo::builder()
+            let create_info = ShaderModuleCreateInfo::default()
                 .flags(ShaderModuleCreateFlags::empty())
-                .code(&spirv)
-                .build();
+                .code(&spirv);
 
             unsafe { device.create_shader_module(&create_info, None)? }
         };
@@ -298,10 +272,9 @@ impl VKUPipelineBuilder {
         spec_constants: &[u32],
     ) -> Result<Self, Error> {
         let module = {
-            let create_info = ShaderModuleCreateInfo::builder()
+            let create_info = ShaderModuleCreateInfo::default()
                 .flags(ShaderModuleCreateFlags::empty())
-                .code(spirv)
-                .build();
+                .code(spirv);
 
             unsafe { device.create_shader_module(&create_info, None)? }
         };
@@ -343,10 +316,9 @@ impl VKUPipelineBuilder {
         let compiled = crate::shader::shader_ad_hoc(glsl, "", ext, false)?;
 
         let module = {
-            let create_info = ShaderModuleCreateInfo::builder()
+            let create_info = ShaderModuleCreateInfo::default()
                 .flags(ShaderModuleCreateFlags::empty())
-                .code(compiled.as_binary())
-                .build();
+                .code(compiled.as_binary());
 
             unsafe { device.create_shader_module(&create_info, None)? }
         };
@@ -375,7 +347,7 @@ impl VKUPipelineBuilder {
     pub fn with_render_pass(
         mut self,
         attachments: &[AttachmentDescription],
-        subpasses: &[SubpassDescription],
+        subpasses: &[SubpassDescription<'a>],
         dependecies: &[SubpassDependency],
     ) -> Self {
         self.pipeline_renderpass = (
@@ -438,36 +410,41 @@ impl VKUPipelineBuilder {
 
     pub fn with_push_constants<P>(mut self) -> Self {
         let size_of = size_of::<P>();
-        let push_constants_range = PushConstantRange::builder()
+        let push_constants_range = PushConstantRange::default()
             .offset(0)
             .size(size_of as u32)
-            .stage_flags(ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT)
-            .build();
+            .stage_flags(ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT);
 
         self.pipeline_layout.2 = vec![push_constants_range];
         self
     }
 
-    pub fn with_descriptors(
-        mut self,
-        descriptors: &[(bool, DescriptorType, ShaderStageFlags, u32)],
-    ) -> Self {
-        let desc_set_layout_bindings: Vec<DescriptorSetLayoutBinding> = descriptors
+    pub fn with_descriptors(mut self, descriptor_info: &[DescriptorInfo]) -> Self {
+        let desc_set_layout_bindings: Vec<DescriptorSetLayoutBinding> = descriptor_info
             .iter()
             .enumerate()
-            .map(|(index, (_, ty, stages, count))| {
-                DescriptorSetLayoutBinding::builder()
-                    .descriptor_count(*count)
-                    .binding(index as u32)
-                    .descriptor_type(*ty)
-                    .stage_flags(*stages)
-                    .build()
-            })
+            .map(
+                |(
+                    index,
+                    DescriptorInfo {
+                        is_dynamic: _,
+                        ty,
+                        stages,
+                        count,
+                    },
+                )| {
+                    DescriptorSetLayoutBinding::default()
+                        .descriptor_count(*count)
+                        .binding(index as u32)
+                        .descriptor_type(*ty)
+                        .stage_flags(*stages)
+                },
+            )
             .collect();
 
-        let binding_flags: Vec<DescriptorBindingFlags> = descriptors
+        let binding_flags: Vec<DescriptorBindingFlags> = descriptor_info
             .iter()
-            .map(|(dynamic, _, _, _)| match dynamic {
+            .map(|DescriptorInfo { is_dynamic, .. }| match is_dynamic {
                 true => DescriptorBindingFlags::UPDATE_AFTER_BIND,
                 false => DescriptorBindingFlags::empty(),
             })
@@ -487,7 +464,7 @@ impl VKUPipelineBuilder {
             .create_graphics_pipelines(PipelineCache::null(), create_infos, None)
         {
             Ok(pipeline) => Ok(pipeline[0]),
-            Err(e) => Err(Error::VkError(e.1)),
+            Err(e) => Err(Error::Vk(e.1)),
         }
     }
 }
@@ -558,12 +535,11 @@ pub enum BlendMode {
 impl From<BlendMode> for PipelineColorBlendAttachmentState {
     fn from(val: BlendMode) -> Self {
         match val {
-            BlendMode::Opaque => PipelineColorBlendAttachmentState::builder()
+            BlendMode::Opaque => PipelineColorBlendAttachmentState::default()
                 .color_write_mask(ColorComponentFlags::RGBA)
-                .blend_enable(false)
-                .build(),
+                .blend_enable(false),
 
-            BlendMode::TraditionalTransparency => PipelineColorBlendAttachmentState::builder()
+            BlendMode::TraditionalTransparency => PipelineColorBlendAttachmentState::default()
                 .color_write_mask(ColorComponentFlags::RGBA)
                 .blend_enable(true)
                 .color_blend_op(BlendOp::ADD)
@@ -571,10 +547,9 @@ impl From<BlendMode> for PipelineColorBlendAttachmentState {
                 .src_alpha_blend_factor(BlendFactor::ONE)
                 .alpha_blend_op(BlendOp::ADD)
                 .dst_color_blend_factor(BlendFactor::ONE_MINUS_SRC_ALPHA)
-                .dst_alpha_blend_factor(BlendFactor::ZERO)
-                .build(),
+                .dst_alpha_blend_factor(BlendFactor::ZERO),
 
-            BlendMode::PremultipliedTransparency => PipelineColorBlendAttachmentState::builder()
+            BlendMode::PremultipliedTransparency => PipelineColorBlendAttachmentState::default()
                 .color_write_mask(ColorComponentFlags::RGBA)
                 .blend_enable(true)
                 .color_blend_op(BlendOp::ADD)
@@ -582,8 +557,7 @@ impl From<BlendMode> for PipelineColorBlendAttachmentState {
                 .src_alpha_blend_factor(BlendFactor::ONE_MINUS_DST_ALPHA)
                 .alpha_blend_op(BlendOp::ADD)
                 .dst_color_blend_factor(BlendFactor::ONE_MINUS_SRC_ALPHA)
-                .dst_alpha_blend_factor(BlendFactor::ONE)
-                .build(),
+                .dst_alpha_blend_factor(BlendFactor::ONE),
         }
     }
 }

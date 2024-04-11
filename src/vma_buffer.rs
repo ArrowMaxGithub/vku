@@ -37,14 +37,9 @@ impl VMABuffer {
     }
 
     pub fn set_debug_object_name(&self, vk_init: &VkInit, base_name: String) -> Result<(), Error> {
+        vk_init.set_debug_object_name(self.buffer, format!("{base_name}_Buffer"))?;
         vk_init.set_debug_object_name(
-            self.buffer.as_raw(),
-            ObjectType::BUFFER,
-            format!("{base_name}_Buffer"),
-        )?;
-        vk_init.set_debug_object_name(
-            unsafe { self.allocation.memory().as_raw() },
-            ObjectType::DEVICE_MEMORY,
+            unsafe { self.allocation.memory() },
             format!("{base_name}_Memory"),
         )?;
         Ok(())
@@ -57,11 +52,12 @@ impl VMABuffer {
     /// # extern crate winit;
     /// # use vku::*;
     /// # use ash::vk::*;
-    /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
+    /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build().unwrap();
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
     /// # let create_info = VkInitCreateInfo::default();
-    /// let mut init = VkInit::new(Some(&window), Some(size), create_info)?;
+    /// # let window_options = WindowOptions::new(window, size);
+    /// let mut init = VkInit::new(Some(window_options), create_info)?;
     /// let size = 1024_usize;
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     ///
@@ -75,11 +71,10 @@ impl VMABuffer {
         size: usize,
         usage: BufferUsageFlags,
     ) -> Result<VMABuffer, Error> {
-        let buffer_info = BufferCreateInfo::builder()
+        let buffer_info = BufferCreateInfo::default()
             .size(size as u64)
             .sharing_mode(SharingMode::EXCLUSIVE)
-            .usage(usage)
-            .build();
+            .usage(usage);
 
         let allocation_info = AllocationCreateDesc {
             name: "Local_Buffer_Memory",
@@ -100,11 +95,12 @@ impl VMABuffer {
     /// # extern crate winit;
     /// # use vku::*;
     /// # use ash::vk::*;
-    /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
+    /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build().unwrap();
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
     /// # let create_info = VkInitCreateInfo::default();
-    /// let mut init = VkInit::new(Some(&window), Some(size), create_info)?;
+    /// # let window_options = WindowOptions::new(window, size);
+    /// let mut init = VkInit::new(Some(window_options), create_info)?;
     /// let size = 1024_usize;
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     ///
@@ -118,11 +114,10 @@ impl VMABuffer {
         size: usize,
         usage: BufferUsageFlags,
     ) -> Result<VMABuffer, Error> {
-        let buffer_info = BufferCreateInfo::builder()
+        let buffer_info = BufferCreateInfo::default()
             .size(size as u64)
             .sharing_mode(SharingMode::EXCLUSIVE)
-            .usage(usage)
-            .build();
+            .usage(usage);
 
         let allocation_info = AllocationCreateDesc {
             name: "Upload_Buffer_Memory",
@@ -141,11 +136,10 @@ impl VMABuffer {
         size: usize,
         usage: BufferUsageFlags,
     ) -> Result<VMABuffer, Error> {
-        let buffer_info = BufferCreateInfo::builder()
+        let buffer_info = BufferCreateInfo::default()
             .size(size as u64)
             .sharing_mode(SharingMode::EXCLUSIVE)
-            .usage(usage)
-            .build();
+            .usage(usage);
 
         let allocation_info = AllocationCreateDesc {
             name: "Readback_Buffer_Memory",
@@ -167,11 +161,12 @@ impl VMABuffer {
     /// # use vku::*;
     /// # use ash::vk::*;
     /// # use std::mem::size_of;
-    /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
+    /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build().unwrap();
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
     /// # let create_info = VkInitCreateInfo::default();
-    /// let mut init = VkInit::new(Some(&window), Some(size), create_info)?;
+    /// # let window_options = WindowOptions::new(window, size);
+    /// let mut init = VkInit::new(Some(window_options), create_info)?;
     /// let size = 1024 * size_of::<usize>();
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     /// let buffer = init.create_cpu_to_gpu_buffer(size, usage)?;
@@ -219,11 +214,12 @@ impl VMABuffer {
     /// # use vku::*;
     /// # use ash::vk::*;
     /// # use std::mem::size_of;
-    /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
+    /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build().unwrap();
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
     /// # let create_info = VkInitCreateInfo::default();
-    /// let mut init = VkInit::new(Some(&window), Some(size), create_info)?;
+    /// # let window_options = WindowOptions::new(window, size);
+    /// let mut init = VkInit::new(Some(window_options), create_info)?;
     /// let size = 2 * size_of::<u32>() + 1024 * size_of::<f32>();
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     /// let buffer = init.create_cpu_to_gpu_buffer(size, usage)?;
@@ -268,11 +264,12 @@ impl VMABuffer {
     /// # use vku::*;
     /// # use ash::vk::*;
     /// # use std::mem::size_of;
-    /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
+    /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build().unwrap();
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
     /// # let create_info = VkInitCreateInfo::default();
-    /// let mut init = VkInit::new(Some(&window), Some(size), create_info)?;
+    /// # let window_options = WindowOptions::new(window, size);
+    /// let mut init = VkInit::new(Some(window_options), create_info)?;
     /// # let cmd_buffer_pool =
     /// #    init.create_cmd_pool(CmdType::Any)?;
     /// # let cmd_buffer =
@@ -312,11 +309,10 @@ impl VMABuffer {
         let dst_offset = dst_offset.unwrap_or(0);
         let size = size.unwrap_or(self.allocation.size() - src_offset);
 
-        let buffer_copy_region = BufferCopy::builder()
+        let buffer_copy_region = BufferCopy::default()
             .src_offset(src_offset)
             .dst_offset(dst_offset)
-            .size(size)
-            .build();
+            .size(size);
 
         unsafe {
             device.cmd_copy_buffer(
@@ -341,11 +337,12 @@ impl VMABuffer {
     /// # use vku::*;
     /// # use ash::vk::*;
     /// # use std::mem::size_of;
-    /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
+    /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build().unwrap();
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
     /// # let create_info = VkInitCreateInfo::default();
-    /// let mut init = VkInit::new(Some(&window), Some(size), create_info)?;
+    /// # let window_options = WindowOptions::new(window, size);
+    /// let mut init = VkInit::new(Some(window_options), create_info)?;
     /// let size = 1024 * size_of::<u32>();
     /// let usage = BufferUsageFlags::STORAGE_BUFFER;
     /// let buffer = init.create_cpu_to_gpu_buffer(size, usage)?;
@@ -377,7 +374,7 @@ impl VMABuffer {
         let dst_queue = dst_queue.unwrap_or(0);
         let size = size.unwrap_or(self.allocation.size());
 
-        BufferMemoryBarrier2::builder()
+        BufferMemoryBarrier2::default()
             .buffer(self.buffer)
             .src_stage_mask(src_stage)
             .dst_stage_mask(dst_stage)
@@ -386,11 +383,10 @@ impl VMABuffer {
             .src_queue_family_index(src_queue)
             .dst_queue_family_index(dst_queue)
             .size(size)
-            .build()
     }
 }
 
-impl VkInit {
+impl<'a> VkInit<'a> {
     /// Shortcut - see [VMABuffer](VMABuffer::create_local_buffer) for example.
     pub fn create_local_buffer(
         &mut self,

@@ -1,15 +1,9 @@
-pub(crate) use ash::extensions::{
-    ext::DebugUtils,
-    khr::{Surface, Swapchain},
-};
 pub(crate) use ash::vk::*;
 pub(crate) use ash::{Device, Entry, Instance};
 
 pub(crate) use gpu_allocator::vulkan::{Allocation, AllocationCreateDesc, Allocator};
 pub(crate) use gpu_allocator::MemoryLocation;
 pub(crate) use log::{error, info, trace, warn};
-pub(crate) use raw_window_handle::RawDisplayHandle;
-pub(crate) use raw_window_handle::RawWindowHandle;
 pub(crate) use std::{
     borrow::Cow,
     ffi::{CStr, CString},

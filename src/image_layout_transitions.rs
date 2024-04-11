@@ -119,7 +119,7 @@ pub fn get_image_layout_transition_barrier2(
         }
     };
 
-    let barrier = ImageMemoryBarrier2::builder()
+    let barrier = ImageMemoryBarrier2::default()
         .image(*image)
         .src_stage_mask(src_stage)
         .dst_stage_mask(dst_stage)
@@ -134,8 +134,7 @@ pub fn get_image_layout_transition_barrier2(
             level_count: 1,
             layer_count: 1,
             ..Default::default()
-        })
-        .build();
+        });
 
     Ok(barrier)
 }

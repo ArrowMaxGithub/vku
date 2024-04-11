@@ -1,3 +1,9 @@
+### [Unreleased] Ash 0.38
+- Updated to raw-window-handle 0.6 and ash 0.38
+- Changed: VkInit::new and Vkinit::on_resize now take one combined Option<WindowOptions> for windowed or headless applications. 
+- Changed: VKUPipelineBuilder::with_descriptors() now takes a [DescriptorInfo] to create DescriptorSetLayoutBindings and DescriptorBindingFlags.
+- Changed: VkInit now holds a lifetime.
+
 ### [0.3.0] GPU-Allocator
 - Changed: HasRawWindowHandle and HasRawDisplayHandle are now trait bounds on VkInit functions.
 - Changed: env_logger only as dev-dep.
