@@ -79,21 +79,12 @@ impl VMAImage {
     }
 
     pub fn set_debug_object_name(&self, vk_init: &VkInit, base_name: String) -> Result<(), Error> {
+        vk_init.set_debug_object_name(self.image, format!("{base_name}_Image"))?;
         vk_init.set_debug_object_name(
-            self.image.as_raw(),
-            ObjectType::IMAGE,
-            format!("{base_name}_Image"),
-        )?;
-        vk_init.set_debug_object_name(
-            unsafe { self.allocation.memory().as_raw() },
-            ObjectType::DEVICE_MEMORY,
+            unsafe { self.allocation.memory() },
             format!("{base_name}_Memory"),
         )?;
-        vk_init.set_debug_object_name(
-            self.image_view.as_raw(),
-            ObjectType::IMAGE_VIEW,
-            format!("{base_name}_Image_View"),
-        )?;
+        vk_init.set_debug_object_name(self.image_view, format!("{base_name}_Image_View"))?;
         self.staging_buffer
             .set_debug_object_name(vk_init, format!("{base_name}_Staging_Buffer"))?;
         Ok(())
@@ -104,11 +95,12 @@ impl VMAImage {
     /// # extern crate winit;
     /// # use vku::*;
     /// # use ash::vk::*;
-    /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
+    /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build().unwrap();
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
     /// # let create_info = VkInitCreateInfo::default();
-    /// let mut init = VkInit::new(Some(&window), Some(size), create_info)?;
+    /// # let window_options = WindowOptions::new(window, size);
+    /// let mut init = VkInit::new(Some(window_options), create_info)?;
     ///
     /// let extent = Extent3D{width: 100, height: 100, depth: 1};
     /// let format = Format::R8G8B8A8_UNORM;
@@ -262,11 +254,12 @@ impl VMAImage {
     /// # extern crate winit;
     /// # use vku::*;
     /// # use ash::vk::*;
-    /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
+    /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build().unwrap();
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
     /// # let create_info = VkInitCreateInfo::default();
-    /// # let mut init = VkInit::new(Some(&window), Some(size), create_info)?;
+    /// # let window_options = WindowOptions::new(window, size);
+    /// # let mut init = VkInit::new(Some(window_options), create_info)?;
     /// let extent = Extent3D{width: 100, height: 100, depth: 1};
     /// let format = Format::R8G8B8A8_UNORM;
     /// let format_bytes = 4;
@@ -291,11 +284,12 @@ impl VMAImage {
     /// # extern crate winit;
     /// # use vku::*;
     /// # use ash::vk::*;
-    /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
+    /// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build().unwrap();
     /// # let size = [800_u32, 600_u32];
     /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
     /// # let create_info = VkInitCreateInfo::default();
-    /// # let mut init = VkInit::new(Some(&window), Some(size), create_info)?;
+    /// # let window_options = WindowOptions::new(window, size);
+    /// # let mut init = VkInit::new(Some(window_options), create_info)?;
     /// # let setup_cmd_buffer_pool =
     /// #     init.create_cmd_pool(CmdType::Any)?;
     /// # let setup_cmd_buffer =
@@ -341,24 +335,22 @@ impl VMAImage {
         cmd_buffer: &CommandBuffer,
     ) {
         unsafe {
-            let buffer_copy_regions = BufferImageCopy::builder()
+            let buffer_copy_regions = BufferImageCopy::default()
                 .buffer_offset(0)
                 .buffer_row_length(0)
                 .buffer_image_height(0)
                 .image_subresource(
-                    ImageSubresourceLayers::builder()
+                    ImageSubresourceLayers::default()
                         .aspect_mask(ImageAspectFlags::COLOR)
                         .mip_level(0)
                         .base_array_layer(0)
-                        .layer_count(1)
-                        .build(),
+                        .layer_count(1),
                 )
                 .image_extent(Extent3D {
                     width: self.extent.width,
                     height: self.extent.height,
                     depth: 1,
-                })
-                .build();
+                });
 
             device.cmd_copy_buffer_to_image(
                 *cmd_buffer,
@@ -398,7 +390,7 @@ impl VMAImage {
     }
 }
 
-impl VkInit {
+impl<'a> VkInit<'a> {
     /// Shortcut - see [VMAImage](VMAImage::create_empty_image) for example.
 
     pub fn create_empty_image(

@@ -15,35 +15,36 @@ This is mostly a personal utility crate and no guarentees are made in terms of s
 use winit::window::WindowBuilder;
 use winit::event_loop::{EventLoop, EventLoopBuilder};
 use winit::dpi::LogicalSize;
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
-use vku::{VkInitCreateInfo, VkInit};
+use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
+use vku::{VkInitCreateInfo, WindowOptions, VkInit};
 
 fn main() -> Result<(), vku::Error>{
-    let event_loop: EventLoop<()> = EventLoopBuilder::default().build();
+    let event_loop: EventLoop<()> = EventLoopBuilder::default().build().unwrap();
     let size = [800_u32, 600_u32];
     let window = WindowBuilder::new()
         .with_inner_size(LogicalSize{width: size[0], height: size[1]})
-        .build(&event_loop)
-        .unwrap();
+        .build(&event_loop).unwrap();
 
     let create_info = VkInitCreateInfo::default();
-    let vk_init = VkInit::new(Some(&window), Some(size), create_info)?;
+    let window_options = WindowOptions::new(window, size);
+    let vk_init = VkInit::new(Some(window_options), create_info)?;
     Ok(())
 }
 ```
 
 ## Swapchain recreation:
 ```rust,no_run
-use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
-use vku::VkInit;
+use raw_window_handle::{DisplayHandle, WindowHandle};
+use vku::{VkInit, WindowOptions};
 use winit::window::Window;
 fn main() -> Result<(), vku::Error>{
     let window: Window = todo!();
     let mut vk_init: VkInit = todo!();
     
     let new_size = [1200_u32, 900_u32];
-    
-    vk_init.on_resize(&window, new_size)?;
+    let window_options = WindowOptions::new(window, new_size);
+
+    vk_init.on_resize(window_options)?;
     Ok(())
 }
 ```

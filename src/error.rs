@@ -6,6 +6,8 @@ unsafe impl Sync for Error {}
 
 #[derive(Error, Debug)]
 pub enum Error {
+    #[error("corresponding function loader was not loaded: {0}")]
+    FnLoaderNotInitialized(String),
     #[error("called function which requires a head on headless instance")]
     HeadCallOnHeadlessInstance,
     #[error("no suitable GPU was found to create the physical device")]
@@ -32,25 +34,28 @@ pub enum Error {
     Preprocess(#[from] shaderc::Error),
 
     #[error("incorrect usage of the vulkan API: {0}")]
-    VkError(#[from] ash::vk::Result),
+    Vk(#[from] ash::vk::Result),
 
     #[error("vulkan entry could not be loaded: {0}")]
-    AshLoadError(#[from] ash::LoadingError),
+    AshLoad(#[from] ash::LoadingError),
 
     #[error("utf8 error: {0}")]
-    Utf8Error(#[from] Utf8Error),
+    Utf8(#[from] Utf8Error),
 
     #[error("cstring convert error: {0}")]
-    CStringConvertError(#[from] NulError),
+    CStringConvert(#[from] NulError),
 
     #[error("io error: {0}")]
-    IOError(#[from] std::io::Error),
+    IO(#[from] std::io::Error),
 
     #[error("gpu allocation error: {0}")]
-    GpuAllocError(#[from] gpu_allocator::AllocationError),
+    GpuAlloc(#[from] gpu_allocator::AllocationError),
 
     #[error("shaderc failed to initialize")]
-    ShaderCInitError,
+    ShaderCInit,
+
+    #[error("raw window handle error: {0}")]
+    RawWindowHandle(#[from] raw_window_handle::HandleError),
 
     #[error("encountered an unknown error: {0}")]
     Catch(#[from] Box<dyn std::error::Error>),

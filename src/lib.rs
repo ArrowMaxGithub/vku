@@ -3,6 +3,7 @@
 mod compute_shader;
 mod create_info;
 mod error;
+mod fn_loader;
 mod image_layout_transitions;
 mod imports;
 mod init;
@@ -14,7 +15,7 @@ mod vma_image;
 
 pub use ash;
 pub use compute_shader::ComputeShader;
-pub use create_info::VkInitCreateInfo;
+pub use create_info::{VkInitCreateInfo, WindowOptions};
 pub use error::Error;
 pub use init::*;
 

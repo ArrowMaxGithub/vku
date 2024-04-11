@@ -4,9 +4,15 @@ mod tests {
 
     use ash::vk::*;
     use std::result::Result;
-    use vku::pipeline_builder::{BlendMode, DepthInfo, StencilInfo, VKUPipeline, VertexConvert};
-    use vku::{Error, VkInit};
+    use vku::pipeline_builder::{
+        BlendMode, DepthInfo, DescriptorInfo, StencilInfo, VKUPipeline, VertexConvert,
+    };
+    use vku::{Error, VkInit, WindowOptions};
+    #[cfg(target_os = "linux")]
     use winit::platform::x11::EventLoopBuilderExtX11;
+
+    #[cfg(target_os = "windows")]
+    use winit::platform::windows::EventLoopBuilderExtWindows;
 
     #[repr(C)]
     struct Vertex2D {
@@ -57,15 +63,21 @@ mod tests {
         pub vec_3: [f32; 4],
     }
 
-    fn default_vk_init() -> Result<VkInit, Error> {
+    fn default_vk_init() -> Result<VkInit<'static>, Error> {
         use vku::VkInitCreateInfo;
         use winit::dpi::LogicalSize;
         use winit::event_loop::{EventLoop, EventLoopBuilder};
         use winit::window::WindowBuilder;
 
         env_logger::init();
-        let event_loop: EventLoop<()> = EventLoopBuilder::default().with_any_thread(true).build();
+
+        let event_loop: EventLoop<()> = EventLoopBuilder::default()
+            .with_any_thread(true)
+            .build()
+            .unwrap();
+
         let size = [800_u32, 600_u32];
+
         let window = WindowBuilder::new()
             .with_inner_size(LogicalSize {
                 width: size[0],
@@ -75,7 +87,9 @@ mod tests {
             .unwrap();
 
         let create_info = VkInitCreateInfo::default();
-        VkInit::new(Some(&window), Some(size), create_info)
+        let window_options = WindowOptions::new(window, size);
+
+        VkInit::new(Some(window_options), create_info)
     }
 
     #[test]
@@ -92,12 +106,12 @@ mod tests {
             .with_colorblends(&[BlendMode::TraditionalTransparency])
             .with_dynamic(&[DynamicState::VIEWPORT, DynamicState::SCISSOR])
             .with_push_constants::<Push>()
-            .with_descriptors(&[(
-                false,
-                DescriptorType::COMBINED_IMAGE_SAMPLER,
-                ShaderStageFlags::FRAGMENT,
-                1,
-            )])
+            .with_descriptors(&[DescriptorInfo {
+                is_dynamic: false,
+                ty: DescriptorType::COMBINED_IMAGE_SAMPLER,
+                stages: ShaderStageFlags::FRAGMENT,
+                count: 1,
+            }])
             .push_shader_stage(
                 &vk_init.device,
                 ShaderStageFlags::VERTEX,
@@ -112,24 +126,22 @@ mod tests {
             )?
             .with_render_pass(
                 &[
-                    AttachmentDescription::builder()
+                    AttachmentDescription::default()
                         .format(Format::R8G8B8A8_UNORM)
                         .samples(SampleCountFlags::TYPE_1)
                         .load_op(AttachmentLoadOp::CLEAR)
                         .store_op(AttachmentStoreOp::STORE)
                         .initial_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-                        .final_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-                        .build(),
-                    AttachmentDescription::builder()
+                        .final_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL),
+                    AttachmentDescription::default()
                         .format(Format::D32_SFLOAT)
                         .samples(SampleCountFlags::TYPE_1)
                         .load_op(AttachmentLoadOp::CLEAR)
                         .store_op(AttachmentStoreOp::STORE)
                         .initial_layout(ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-                        .final_layout(ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-                        .build(),
+                        .final_layout(ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL),
                 ],
-                &[SubpassDescription::builder()
+                &[SubpassDescription::default()
                     .pipeline_bind_point(PipelineBindPoint::GRAPHICS)
                     .color_attachments(&[AttachmentReference {
                         attachment: 0,
@@ -138,8 +150,7 @@ mod tests {
                     .depth_stencil_attachment(&AttachmentReference {
                         attachment: 1,
                         layout: ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                    })
-                    .build()],
+                    })],
                 &[],
             )
             .build(&vk_init, "Default_Pipeline")?;

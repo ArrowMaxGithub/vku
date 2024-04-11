@@ -2,9 +2,10 @@ use std::mem::ManuallyDrop;
 
 use gpu_allocator::vulkan::AllocatorCreateDesc;
 use gpu_allocator::{AllocationSizes, AllocatorDebugSettings};
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+use raw_window_handle::{DisplayHandle, HasDisplayHandle, HasWindowHandle};
 
-use crate::create_info::VkInitCreateInfo;
+use crate::create_info::{VkInitCreateInfo, WindowOptions};
+use crate::fn_loader::FnLoader;
 use crate::{imports::*, VMAImage};
 
 /// Wrapper around 'static' vulkan objects (instance, device etc.), optional head (surface, swapchain etc.), and utility functions for ease of use.
@@ -14,13 +15,12 @@ use crate::{imports::*, VMAImage};
 /// - Swapchain recreation and resizing
 /// - Optionally exposed dedicated compute and transfer queues
 /// - Shortcuts for present and submit operations
-pub struct VkInit {
+pub struct VkInit<'a> {
     /// [GPU-Allocator](gpu-allocator::vulkan::Allocator)
     pub allocator: ManuallyDrop<Allocator>,
     pub entry: Entry,
+    pub(crate) fn_loader: FnLoader,
     pub instance: Instance,
-    /// Only created with enabled validation
-    pub debug_loader: Option<DebugUtils>,
     /// Only created with enabled validation   
     pub debug_messenger: Option<DebugUtilsMessengerEXT>,
     pub physical_device: PhysicalDevice,
@@ -33,15 +33,12 @@ pub struct VkInit {
     pub compute_queue: Option<Queue>,
     pub physical_device_info: PhysicalDeviceInfo,
     pub head: Option<Head>,
-    pub create_info: VkInitCreateInfo,
+    pub create_info: VkInitCreateInfo<'a>,
 }
 
 /// Wrapper around presentation resources.
-/// - Depth image
 pub struct Head {
-    pub surface_loader: Surface,
     pub surface: SurfaceKHR,
-    pub swapchain_loader: Swapchain,
     pub swapchain: SwapchainKHR,
     pub swapchain_images: Vec<Image>,
     pub swapchain_image_views: Vec<ImageView>,
@@ -61,11 +58,12 @@ pub struct Head {
 /// # extern crate winit;
 /// # use vku::*;
 /// # use ash::vk::*;
-/// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build();
+/// # let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoopBuilder::default().build().unwrap();
 /// # let size = [800_u32, 600_u32];
 /// # let window = winit::window::WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize{width: size[0], height: size[1]}).build(&event_loop).unwrap();
 /// # let create_info = VkInitCreateInfo::default();
-/// let init = VkInit::new(Some(&window), Some(size), create_info)?;
+/// # let window_options = WindowOptions::new(window, size);
+/// let init = VkInit::new(Some(window_options), create_info)?;
 ///
 /// let (compute_queue, compute_queue_family_index) = init.get_queue(CmdType::Compute);
 /// # Ok::<(), vku::Error>(())
@@ -103,7 +101,7 @@ pub struct SurfaceInfo {
     pub pre_transform: SurfaceTransformFlagsKHR,
 }
 
-impl VkInit {
+impl<'a> VkInit<'a> {
     /// Creates a new VkInit Vulkan wrapper from raw display and window handles.
     ///
     /// All creation parameters are provided via [VkInitCreateInfo].
@@ -118,41 +116,40 @@ impl VkInit {
     /// use winit::window::WindowBuilder;
     /// use winit::event_loop::{EventLoop, EventLoopBuilder};
     /// use winit::dpi::LogicalSize;
-    /// use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
-    /// use vku::{VkInitCreateInfo, VkInit};
+    /// use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
+    /// use vku::{VkInitCreateInfo, WindowOptions, VkInit};
     ///
-    /// let event_loop: EventLoop<()> = EventLoopBuilder::default().build();
+    /// let event_loop: EventLoop<()> = EventLoopBuilder::default().build().unwrap();
     /// let size = [800_u32, 600_u32];
     /// let window = WindowBuilder::new()
     ///     .with_inner_size(LogicalSize{width: size[0], height: size[1]})
     ///     .build(&event_loop).unwrap();
     /// let create_info = VkInitCreateInfo::default();
-    ///
-    /// let init = VkInit::new(Some(&window), Some(size), create_info)?;
+    /// let window_options = WindowOptions::new(window, size);
+    /// let init = VkInit::new(Some(window_options), create_info)?;
     /// # Ok::<(), vku::Error>(())
     /// ```
 
-    pub fn new<T: HasRawDisplayHandle + HasRawWindowHandle>(
-        raw_window_handles: Option<&T>,
-        window_size: Option<[u32; 2]>,
-        create_info: VkInitCreateInfo,
+    pub fn new<T: HasDisplayHandle + HasWindowHandle>(
+        window_options: Option<WindowOptions<T>>,
+        create_info: VkInitCreateInfo<'a>,
     ) -> Result<Self, Error> {
         unsafe {
-            let (display_h, window_h) = match raw_window_handles {
-                Some(handles) => (
-                    Some(handles.raw_display_handle()),
-                    Some(handles.raw_window_handle()),
-                ),
-                None => (None, None),
-            };
+            let display_h = match &window_options {
+                Some(w) => w.handle.display_handle().map(Some),
+                None => Ok(None),
+            }?;
+
+            let mut fn_loader = FnLoader::default();
+
             #[cfg(feature = "linked")]
             let entry = ash::Entry::linked();
 
             #[cfg(not(feature = "linked"))]
             let entry = ash::Entry::load()?;
 
-            let (instance, debug_loader, debug_messenger) =
-                Self::create_instance_and_debug(&entry, display_h, &create_info)?;
+            let (instance, debug_messenger) =
+                Self::create_instance_and_debug(&mut fn_loader, &entry, display_h, &create_info)?;
             let (physical_device, physical_device_info) =
                 Self::create_physical_device(&instance, &create_info)?;
             let device = Self::create_device(
@@ -165,19 +162,16 @@ impl VkInit {
             let (unified_queue, transfer_queue, compute_queue) =
                 Self::create_queues(&device, &physical_device_info)?;
 
-            let head = if let (Some(display_handle), Some(window_handle), Some(window_size)) =
-                (display_h, window_h, window_size)
-            {
+            let head = if let Some(w) = window_options {
                 Some(Self::create_head(
+                    &mut fn_loader,
                     &device,
                     &mut allocator,
                     &entry,
                     &instance,
-                    display_handle,
-                    window_handle,
-                    window_size,
                     &physical_device,
                     &create_info,
+                    w,
                 )?)
             } else {
                 None
@@ -185,34 +179,22 @@ impl VkInit {
 
             //TODO: Why is RenderDoc crashing when Instance debug name is set?
             //TODO: Why are swapchain, swapchain_images, and swapchain_image_views names not set in RenderDoc?
-            if let Some(dbg) = &debug_loader {
+            if let Ok(dbg) = fn_loader.debug_utils_device() {
                 Self::set_debug_object_name_static(
                     dbg,
-                    &device,
-                    physical_device.as_raw(),
-                    ObjectType::PHYSICAL_DEVICE,
+                    physical_device,
                     "VKU_Physical_Device".to_string(),
                 )?;
+                Self::set_debug_object_name_static(dbg, device.handle(), "VKU_Device".to_string())?;
                 Self::set_debug_object_name_static(
                     dbg,
-                    &device,
-                    device.handle().as_raw(),
-                    ObjectType::DEVICE,
-                    "VKU_Device".to_string(),
-                )?;
-                Self::set_debug_object_name_static(
-                    dbg,
-                    &device,
-                    unified_queue.as_raw(),
-                    ObjectType::QUEUE,
+                    unified_queue,
                     "VKU_Unified_Queue".to_string(),
                 )?;
                 if let Some(transfer_queue) = transfer_queue {
                     Self::set_debug_object_name_static(
                         dbg,
-                        &device,
-                        transfer_queue.as_raw(),
-                        ObjectType::QUEUE,
+                        transfer_queue,
                         "VKU_Transfer_Queue".to_string(),
                     )?;
                 }
@@ -220,9 +202,7 @@ impl VkInit {
                 if let Some(compute_queue) = compute_queue {
                     Self::set_debug_object_name_static(
                         dbg,
-                        &device,
-                        compute_queue.as_raw(),
-                        ObjectType::QUEUE,
+                        compute_queue,
                         "VKU_Compute_Queue".to_string(),
                     )?;
                 }
@@ -230,40 +210,32 @@ impl VkInit {
                 if let Some(head) = &head {
                     Self::set_debug_object_name_static(
                         dbg,
-                        &device,
-                        head.swapchain.as_raw(),
-                        ObjectType::SWAPCHAIN_KHR,
-                        "VKU_SwapchainKHR".to_string(),
+                        head.swapchain,
+                        "VKU_Swapchain".to_string(),
                     )?;
 
                     Self::set_debug_object_name_static(
                         dbg,
-                        &device,
-                        head.depth_image.image.as_raw(),
-                        ObjectType::IMAGE,
+                        head.depth_image.image,
                         "VKU_DepthImage".to_string(),
                     )?;
+
                     Self::set_debug_object_name_static(
                         dbg,
-                        &device,
-                        head.depth_image.image_view.as_raw(),
-                        ObjectType::IMAGE_VIEW,
+                        head.depth_image.image_view,
                         "VKU_DepthImage_View".to_string(),
                     )?;
+
                     Self::set_debug_object_name_static(
                         dbg,
-                        &device,
-                        head.depth_image.allocation.memory().as_raw(),
-                        ObjectType::DEVICE_MEMORY,
+                        head.depth_image.allocation.memory(),
                         "VKU_DepthImage_Memory".to_string(),
                     )?;
 
                     for (i, image) in head.swapchain_images.iter().enumerate() {
                         Self::set_debug_object_name_static(
                             dbg,
-                            &device,
-                            image.as_raw(),
-                            ObjectType::IMAGE,
+                            *image,
                             format!("VKU_Swapchain_Image_{i}"),
                         )?;
                     }
@@ -271,9 +243,7 @@ impl VkInit {
                     for (i, image_view) in head.swapchain_image_views.iter().enumerate() {
                         Self::set_debug_object_name_static(
                             dbg,
-                            &device,
-                            image_view.as_raw(),
-                            ObjectType::IMAGE_VIEW,
+                            *image_view,
                             format!("VKU_Swapchain_Image_View_{i}"),
                         )?;
                     }
@@ -283,10 +253,10 @@ impl VkInit {
             trace!("Created VkInit");
 
             Ok(Self {
+                fn_loader,
                 allocator: ManuallyDrop::new(allocator),
                 entry,
                 instance,
-                debug_loader,
                 debug_messenger,
                 physical_device,
                 device,
@@ -303,19 +273,24 @@ impl VkInit {
     pub fn destroy(&mut self) -> Result<(), Error> {
         unsafe {
             self.device.device_wait_idle()?;
+
             if let Some(head) = &mut self.head {
                 for image_view in &head.swapchain_image_views {
                     self.device.destroy_image_view(*image_view, None);
                 }
-                head.swapchain_loader
+                self.fn_loader
+                    .swapchain_device()?
                     .destroy_swapchain(head.swapchain, None);
-                head.surface_loader.destroy_surface(head.surface, None);
+                self.fn_loader
+                    .surface_instance()?
+                    .destroy_surface(head.surface, None);
                 head.depth_image
                     .destroy(&self.device, &mut self.allocator)?;
             }
-            if let Some(dbg_loader) = &self.debug_loader {
+
+            if let Ok(dbg_instance) = self.fn_loader.debug_utils_instance() {
                 if let Some(dbg_msg) = self.debug_messenger {
-                    dbg_loader.destroy_debug_utils_messenger(dbg_msg, None);
+                    dbg_instance.destroy_debug_utils_messenger(dbg_msg, None);
                 }
             }
 
@@ -338,58 +313,67 @@ impl VkInit {
             .expect("called head_mut() on headless vku")
     }
 
-    pub fn set_debug_object_name(
+    pub fn set_debug_object_name<T: Handle>(
         &self,
-        obj_handle: u64,
-        obj_type: ObjectType,
+        obj_handle: T,
         name: String,
     ) -> Result<(), Error> {
-        if let Some(dbg) = &self.debug_loader {
-            let c_name = CString::new(name)?;
+        let Ok(loader) = self.fn_loader.debug_utils_device() else {
+            return Ok(());
+        };
 
-            let name_info = DebugUtilsObjectNameInfoEXT::builder()
-                .object_name(&c_name)
-                .object_handle(obj_handle)
-                .object_type(obj_type)
-                .build();
+        let c_name = CString::new(name)?;
 
-            unsafe { dbg.set_debug_utils_object_name(self.device.handle(), &name_info)? };
+        let name_info = DebugUtilsObjectNameInfoEXT::default()
+            .object_name(&c_name)
+            .object_handle(obj_handle);
+
+        unsafe {
+            loader.set_debug_utils_object_name(&name_info)?;
         }
+
         Ok(())
     }
 
     pub fn insert_debug_label(&self, cmd_buffer: &CommandBuffer, name: &str) -> Result<(), Error> {
-        if let Some(dbg) = &self.debug_loader {
-            let label_info = DebugUtilsLabelEXT::builder()
-                .label_name(unsafe { CStr::from_ptr(name.as_ptr() as *const i8) })
-                .build();
+        let Ok(loader) = &self.fn_loader.debug_utils_device() else {
+            return Ok(());
+        };
 
-            unsafe { dbg.cmd_insert_debug_utils_label(*cmd_buffer, &label_info) };
-        }
+        let label_info = DebugUtilsLabelEXT::default()
+            .label_name(unsafe { CStr::from_ptr(name.as_ptr() as *const i8) });
+
+        unsafe { loader.cmd_insert_debug_utils_label(*cmd_buffer, &label_info) };
+
         Ok(())
     }
 
     pub fn begin_debug_label(&self, cmd_buffer: &CommandBuffer, name: &str) -> Result<(), Error> {
-        if let Some(dbg) = &self.debug_loader {
-            let label_info = DebugUtilsLabelEXT::builder()
-                .label_name(unsafe { CStr::from_ptr(name.as_ptr() as *const i8) })
-                .build();
+        let Ok(loader) = &self.fn_loader.debug_utils_device() else {
+            return Ok(());
+        };
 
-            unsafe { dbg.cmd_begin_debug_utils_label(*cmd_buffer, &label_info) };
-        }
+        let label_info = DebugUtilsLabelEXT::default()
+            .label_name(unsafe { CStr::from_ptr(name.as_ptr() as *const i8) });
+
+        unsafe { loader.cmd_begin_debug_utils_label(*cmd_buffer, &label_info) };
+
         Ok(())
     }
 
     pub fn end_debug_label(&self, cmd_buffer: &CommandBuffer) -> Result<(), Error> {
-        if let Some(dbg) = &self.debug_loader {
-            unsafe { dbg.cmd_end_debug_utils_label(*cmd_buffer) };
-        }
+        let Ok(loader) = &self.fn_loader.debug_utils_device() else {
+            return Ok(());
+        };
+
+        unsafe { loader.cmd_end_debug_utils_label(*cmd_buffer) };
+
         Ok(())
     }
 
     pub fn create_cmd_pool(&self, cmd_type: CmdType) -> Result<CommandPool, Error> {
         let (_, queue_family_index) = self.get_queue(cmd_type);
-        let create_info = CommandPoolCreateInfo::builder()
+        let create_info = CommandPoolCreateInfo::default()
             .queue_family_index(queue_family_index)
             .flags(CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
 
@@ -402,7 +386,7 @@ impl VkInit {
         pool: &CommandPool,
         count: u32,
     ) -> Result<Vec<CommandBuffer>, Error> {
-        let create_info = CommandBufferAllocateInfo::builder()
+        let create_info = CommandBufferAllocateInfo::default()
             .command_pool(*pool)
             .level(CommandBufferLevel::PRIMARY)
             .command_buffer_count(count);
@@ -413,7 +397,7 @@ impl VkInit {
 
     /// Creates a signaled fence.
     pub fn create_fence(&self) -> Result<Fence, Error> {
-        let create_info = FenceCreateInfo::builder().flags(FenceCreateFlags::SIGNALED);
+        let create_info = FenceCreateInfo::default().flags(FenceCreateFlags::SIGNALED);
         let fence = unsafe { self.device.create_fence(&create_info, None)? };
 
         Ok(fence)
@@ -423,7 +407,7 @@ impl VkInit {
     pub fn create_fences(&self, count: usize) -> Result<Vec<Fence>, Error> {
         let mut fences = Vec::new();
         for _ in 0..count {
-            let create_info = FenceCreateInfo::builder().flags(FenceCreateFlags::SIGNALED);
+            let create_info = FenceCreateInfo::default().flags(FenceCreateFlags::SIGNALED);
             let fence = unsafe { self.device.create_fence(&create_info, None)? };
             fences.push(fence);
         }
@@ -482,7 +466,8 @@ impl VkInit {
             return Err(Error::HeadCallOnHeadlessInstance);
         };
         let (index, sub_optimal) = unsafe {
-            head.swapchain_loader.acquire_next_image(
+            let loader = ash::khr::swapchain::Device::new(&self.instance, &self.device);
+            loader.acquire_next_image(
                 head.swapchain,
                 1000 * 1000 * 1000, //One second
                 acquire_img_semaphore,
@@ -501,7 +486,7 @@ impl VkInit {
 
     pub fn begin_cmd_buffer(&self, cmd_buffer: &CommandBuffer) -> Result<(), Error> {
         let cmd_buffer_begin_info =
-            CommandBufferBeginInfo::builder().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+            CommandBufferBeginInfo::default().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
 
         unsafe {
             self.device
@@ -527,28 +512,26 @@ impl VkInit {
             depth_stencil: head.clear_depth_stencil_value,
         };
 
-        let render_area = Rect2D::builder()
+        let render_area = Rect2D::default()
             .offset(Offset2D { x: 0, y: 0 })
             .extent(head.surface_info.current_extent);
 
-        let color_attachment_info = [RenderingAttachmentInfo::builder()
+        let color_attachment_info = [RenderingAttachmentInfo::default()
             .image_view(*swapchain_image_view)
             .image_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
             .load_op(AttachmentLoadOp::CLEAR)
             .store_op(AttachmentStoreOp::STORE)
-            .clear_value(clear_color_value)
-            .build()];
+            .clear_value(clear_color_value)];
 
-        let depth_attachment_info = RenderingAttachmentInfo::builder()
+        let depth_attachment_info = RenderingAttachmentInfo::default()
             .image_view(head.depth_image.image_view)
             .image_layout(ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
             .load_op(AttachmentLoadOp::CLEAR)
             .store_op(AttachmentStoreOp::STORE)
-            .clear_value(clear_depth_stencil_value)
-            .build();
+            .clear_value(clear_depth_stencil_value);
 
-        let rendering_begin_info = RenderingInfo::builder()
-            .render_area(*render_area)
+        let rendering_begin_info = RenderingInfo::default()
+            .render_area(render_area)
             .layer_count(1)
             .color_attachments(&color_attachment_info)
             .depth_attachment(&depth_attachment_info);
@@ -579,12 +562,11 @@ impl VkInit {
         unsafe { self.device.end_command_buffer(*cmd_buffer)? };
 
         let cmd_buffers = [*cmd_buffer];
-        let mut submit_info = SubmitInfo::builder()
+        let mut submit_info = SubmitInfo::default()
             .command_buffers(&cmd_buffers)
             .wait_dst_stage_mask(wait_dst_flags)
             .signal_semaphores(signal_sem)
-            .wait_semaphores(wait_sem)
-            .build();
+            .wait_semaphores(wait_sem);
 
         if wait_sem.is_empty() {
             submit_info.wait_semaphore_count = 0;
@@ -628,11 +610,10 @@ impl VkInit {
         image_memory_barriers: &[ImageMemoryBarrier2],
         buffer_memory_barriers: &[BufferMemoryBarrier2],
     ) {
-        let dependency_info = DependencyInfo::builder()
+        let dependency_info = DependencyInfo::default()
             .image_memory_barriers(image_memory_barriers)
             .buffer_memory_barriers(buffer_memory_barriers)
-            .dependency_flags(DependencyFlags::empty())
-            .build();
+            .dependency_flags(DependencyFlags::empty());
 
         unsafe {
             self.device
@@ -648,18 +629,23 @@ impl VkInit {
         let Some(head) = self.head.as_ref() else {
             return Err(Error::HeadCallOnHeadlessInstance);
         };
+
+        let Ok(loader) = &self.fn_loader.swapchain_device() else {
+            return Err(Error::FnLoaderNotInitialized(
+                "swapchain device".to_string(),
+            ));
+        };
+
         let swapchains = [head.swapchain];
         let image_indices = [frame as u32];
         let wait_sems = [*rendering_complete_semaphore];
-        let present_info = ash::vk::PresentInfoKHR::builder()
+        let present_info = ash::vk::PresentInfoKHR::default()
             .wait_semaphores(&wait_sems)
             .swapchains(&swapchains)
-            .image_indices(&image_indices)
-            .build();
+            .image_indices(&image_indices);
 
         unsafe {
-            head.swapchain_loader
-                .queue_present(self.unified_queue, &present_info)?;
+            loader.queue_present(self.unified_queue, &present_info)?;
         }
 
         Ok(())
@@ -716,37 +702,34 @@ impl VkInit {
         }
     }
 
-    fn set_debug_object_name_static(
-        dbg: &DebugUtils,
-        device: &Device,
-        obj_handle: u64,
-        obj_type: ObjectType,
+    fn set_debug_object_name_static<T: Handle>(
+        dbg: &ash::ext::debug_utils::Device,
+        obj_handle: T,
         name: String,
     ) -> Result<(), Error> {
         let c_name = CString::new(name)?;
-        let name_info = DebugUtilsObjectNameInfoEXT::builder()
+        let name_info = DebugUtilsObjectNameInfoEXT::default()
             .object_name(&c_name)
-            .object_handle(obj_handle)
-            .object_type(obj_type)
-            .build();
+            .object_handle(obj_handle);
 
-        unsafe { dbg.set_debug_utils_object_name(device.handle(), &name_info)? };
+        unsafe { dbg.set_debug_utils_object_name(&name_info)? };
         Ok(())
     }
 
     pub(crate) unsafe fn create_instance_and_debug(
+        fn_load: &mut FnLoader,
         entry: &Entry,
-        display_handle: Option<RawDisplayHandle>,
+        display_handle: Option<DisplayHandle>,
         create_info: &VkInitCreateInfo,
-    ) -> Result<(Instance, Option<DebugUtils>, Option<DebugUtilsMessengerEXT>), Error> {
-        let app_info = ApplicationInfo::builder()
+    ) -> Result<(Instance, Option<DebugUtilsMessengerEXT>), Error> {
+        let app_info = ApplicationInfo::default()
             .application_name(CStr::from_ptr(create_info.app_name.as_ptr() as *const i8))
             .engine_name(CStr::from_ptr(create_info.engine_name.as_ptr() as *const i8))
             .application_version(create_info.app_version)
             .api_version(create_info.vk_version);
 
         let mut extensions_names = match display_handle {
-            Some(handle) => ash_window::enumerate_required_extensions(handle)?.to_vec(),
+            Some(handle) => ash_window::enumerate_required_extensions(handle.as_raw())?.to_vec(),
             None => vec![],
         };
 
@@ -755,7 +738,7 @@ impl VkInit {
         }
 
         if create_info.enable_validation {
-            extensions_names.push(DebugUtils::name().as_ptr());
+            extensions_names.push(ash::ext::debug_utils::NAME.as_ptr());
 
             let supported_layers: Vec<String> = entry
                 .enumerate_instance_layer_properties()?
@@ -775,24 +758,29 @@ impl VkInit {
                 .map(|c_string| c_string.as_ptr())
                 .collect();
 
-            let debug_messenger_info = DebugUtilsMessengerCreateInfoEXT::builder()
+            let debug_messenger_info = DebugUtilsMessengerCreateInfoEXT::default()
                 .message_severity(create_info.log_level)
                 .message_type(create_info.log_msg)
                 .pfn_user_callback(Some(vulkan_debug_callback));
 
-            let mut val_features = ValidationFeaturesEXT::builder()
+            let mut val_features = ValidationFeaturesEXT::default()
                 .enabled_validation_features(&create_info.enabled_validation_features);
 
-            let instance_create_info = InstanceCreateInfo::builder()
+            let instance_create_info = InstanceCreateInfo::default()
                 .application_info(&app_info)
                 .enabled_layer_names(&enabled_layers_names_ptr)
                 .enabled_extension_names(&extensions_names)
                 .push_next(&mut val_features);
 
             let instance = entry.create_instance(&instance_create_info, None)?;
-            let debug_utils_loader = DebugUtils::new(entry, &instance);
-            let debug_messenger =
-                debug_utils_loader.create_debug_utils_messenger(&debug_messenger_info, None)?;
+
+            fn_load
+                .debug_utils_instance
+                .get_or_insert(ash::ext::debug_utils::Instance::new(entry, &instance));
+
+            let debug_messenger = fn_load
+                .debug_utils_instance()?
+                .create_debug_utils_messenger(&debug_messenger_info, None)?;
 
             trace!("Created instance with validation enabled");
 
@@ -818,9 +806,9 @@ impl VkInit {
                 create_info.enabled_validation_features.len()
             );
 
-            Ok((instance, Some(debug_utils_loader), Some(debug_messenger)))
+            Ok((instance, Some(debug_messenger)))
         } else {
-            let instance_create_info = InstanceCreateInfo::builder()
+            let instance_create_info = InstanceCreateInfo::default()
                 .application_info(&app_info)
                 .enabled_extension_names(&extensions_names);
             let instance = entry.create_instance(&instance_create_info, None)?;
@@ -835,7 +823,7 @@ impl VkInit {
                 trace!("{:#?}", String::from_utf8_lossy(cstr.to_bytes()));
             }
 
-            Ok((instance, None, None))
+            Ok((instance, None))
         }
     }
 
@@ -937,7 +925,7 @@ impl VkInit {
             .map(|ext| ext.as_ptr() as *const i8)
             .collect();
 
-        enabled_extensions_raw.insert(0, Swapchain::name().as_ptr());
+        enabled_extensions_raw.insert(0, ash::khr::swapchain::NAME.as_ptr());
 
         for ext in &enabled_extensions_raw {
             let ext_name = CStr::from_ptr(*ext);
@@ -959,30 +947,27 @@ impl VkInit {
         let mut queue_create_infos = Vec::new();
 
         queue_create_infos.push(
-            DeviceQueueCreateInfo::builder()
+            DeviceQueueCreateInfo::default()
                 .queue_family_index(physical_device_info.unified_queue_family_index)
-                .queue_priorities(&queue_priorities)
-                .build(),
+                .queue_priorities(&queue_priorities),
         );
 
         if let Some(transfer_index) = physical_device_info.transfer_queue_family_index {
             queue_create_infos.push(
-                DeviceQueueCreateInfo::builder()
+                DeviceQueueCreateInfo::default()
                     .queue_family_index(transfer_index)
-                    .queue_priorities(&queue_priorities)
-                    .build(),
+                    .queue_priorities(&queue_priorities),
             );
         }
         if let Some(compute_index) = physical_device_info.compute_queue_family_index {
             queue_create_infos.push(
-                DeviceQueueCreateInfo::builder()
+                DeviceQueueCreateInfo::default()
                     .queue_family_index(compute_index)
-                    .queue_priorities(&queue_priorities)
-                    .build(),
+                    .queue_priorities(&queue_priorities),
             );
         }
 
-        let mut device_create_info = DeviceCreateInfo::builder()
+        let mut device_create_info = DeviceCreateInfo::default()
             .enabled_extension_names(&enabled_extensions_raw)
             .enabled_features(&physical_device_info.features)
             .queue_create_infos(&queue_create_infos);
@@ -1042,18 +1027,20 @@ impl VkInit {
         Ok((unified_queue, transfer_queue, compute_queue))
     }
 
-    pub(crate) unsafe fn create_surface(
+    pub(crate) unsafe fn create_surface<T: HasDisplayHandle + HasWindowHandle>(
+        fn_loader: &FnLoader,
         entry: &Entry,
         instance: &Instance,
-        display_handle: RawDisplayHandle,
-        window_handle: RawWindowHandle,
-        window_size: [u32; 2],
         physical_device: &PhysicalDevice,
         create_info: &VkInitCreateInfo,
-    ) -> Result<(Surface, SurfaceKHR, SurfaceInfo), Error> {
-        let loader = Surface::new(entry, instance);
+        window_options: &WindowOptions<T>,
+    ) -> Result<(SurfaceKHR, SurfaceInfo), Error> {
+        let loader = fn_loader.surface_instance()?;
+        let raw_display_h = window_options.handle.display_handle()?.as_raw();
+        let raw_window_h = window_options.handle.window_handle()?.as_raw();
+
         let surface =
-            ash_window::create_surface(entry, instance, display_handle, window_handle, None)?;
+            ash_window::create_surface(entry, instance, raw_display_h, raw_window_h, None)?;
         let formats = loader.get_physical_device_surface_formats(*physical_device, surface)?;
 
         let color_format = *formats
@@ -1094,8 +1081,8 @@ impl VkInit {
             min_extent: capabilities.min_image_extent,
             max_extent: capabilities.max_image_extent,
             current_extent: Extent2D {
-                width: window_size[0],
-                height: window_size[1],
+                width: window_options.size[0],
+                height: window_options.size[1],
             },
             present_mode,
             image_count: requested_img_count,
@@ -1104,21 +1091,22 @@ impl VkInit {
         };
 
         trace!("Created surface");
-        Ok((loader, surface, surface_info))
+        Ok((surface, surface_info))
     }
 
     pub(crate) unsafe fn create_swapchain(
-        instance: &Instance,
-        device: &Device,
+        fn_loader: &FnLoader,
         surface: &SurfaceKHR,
         surface_info: &SurfaceInfo,
         window_size: [u32; 2],
-    ) -> Result<(Swapchain, SwapchainKHR), Error> {
+    ) -> Result<SwapchainKHR, Error> {
+        let loader = fn_loader.swapchain_device()?;
+
         let window_extent = Extent2D {
             width: window_size[0],
             height: window_size[1],
         };
-        let swapchain_create_info = SwapchainCreateInfoKHR::builder()
+        let swapchain_create_info = SwapchainCreateInfoKHR::default()
             .surface(*surface)
             .min_image_count(surface_info.image_count)
             .image_color_space(surface_info.color_format.color_space)
@@ -1132,23 +1120,24 @@ impl VkInit {
             .clipped(true)
             .image_array_layers(1);
 
-        let loader = Swapchain::new(instance, device);
         let swapchain = loader.create_swapchain(&swapchain_create_info, None)?;
 
         trace!("Created swapchain");
-        Ok((loader, swapchain))
+        Ok(swapchain)
     }
 
     pub(crate) unsafe fn create_swapchain_images(
+        fn_loader: &FnLoader,
         device: &Device,
-        swapchain_loader: &Swapchain,
         swapchain: &SwapchainKHR,
         surface_info: &SurfaceInfo,
     ) -> Result<(Vec<Image>, Vec<ImageView>), Error> {
-        let images = swapchain_loader.get_swapchain_images(*swapchain)?;
+        let loader = fn_loader.swapchain_device()?;
+
+        let images = loader.get_swapchain_images(*swapchain)?;
         let mut image_views = Vec::new();
         for image in &images {
-            let create_view_info = ImageViewCreateInfo::builder()
+            let create_view_info = ImageViewCreateInfo::default()
                 .view_type(ImageViewType::TYPE_2D)
                 .format(surface_info.color_format.format)
                 .components(ComponentMapping {
@@ -1194,42 +1183,48 @@ impl VkInit {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub(crate) unsafe fn create_head(
+    pub(crate) unsafe fn create_head<T: HasDisplayHandle + HasWindowHandle>(
+        fn_loader: &mut FnLoader,
         device: &Device,
         allocator: &mut Allocator,
         entry: &Entry,
         instance: &Instance,
-        display_handle: RawDisplayHandle,
-        window_handle: RawWindowHandle,
-        window_size: [u32; 2],
         physical_device: &PhysicalDevice,
         create_info: &VkInitCreateInfo,
+        window_options: WindowOptions<T>,
     ) -> Result<Head, Error> {
-        let (surface_loader, surface, surface_info) = Self::create_surface(
+        fn_loader
+            .surface_instance
+            .get_or_insert(ash::khr::surface::Instance::new(entry, instance));
+        fn_loader
+            .swapchain_instance
+            .get_or_insert(ash::khr::swapchain::Instance::new(entry, instance));
+        fn_loader
+            .swapchain_device
+            .get_or_insert(ash::khr::swapchain::Device::new(instance, device));
+
+        let (surface, surface_info) = Self::create_surface(
+            fn_loader,
             entry,
             instance,
-            display_handle,
-            window_handle,
-            window_size,
             physical_device,
             create_info,
+            &window_options,
         )?;
-        let (swapchain_loader, swapchain) =
-            Self::create_swapchain(instance, device, &surface, &surface_info, window_size)?;
+        let swapchain =
+            Self::create_swapchain(fn_loader, &surface, &surface_info, window_options.size)?;
         let (swapchain_images, swapchain_image_views) =
-            Self::create_swapchain_images(device, &swapchain_loader, &swapchain, &surface_info)?;
+            Self::create_swapchain_images(fn_loader, device, &swapchain, &surface_info)?;
         let depth_image = Self::create_depth_image(
             device,
             allocator,
-            window_size,
+            window_options.size,
             create_info.depth_format,
             create_info.depth_format_sizeof,
         )?;
 
         Ok(Head {
-            surface_loader,
             surface,
-            swapchain_loader,
             swapchain,
             swapchain_images,
             swapchain_image_views,
@@ -1242,37 +1237,36 @@ impl VkInit {
         })
     }
 
-    pub fn change_present_mode<T: HasRawDisplayHandle + HasRawWindowHandle>(
+    pub fn change_present_mode<T: HasDisplayHandle + HasWindowHandle>(
         &mut self,
-        raw_window_handles: T,
-        window_size: [u32; 2],
+        window_options: WindowOptions<T>,
         mode: PresentModeKHR,
     ) -> Result<(), Error> {
         unsafe {
-            let display_h = raw_window_handles.raw_display_handle();
-            let window_h = raw_window_handles.raw_window_handle();
-
             if let Some(head) = &mut self.head {
                 self.device.device_wait_idle()?;
                 for image_view in &head.swapchain_image_views {
                     self.device.destroy_image_view(*image_view, None);
                 }
-                head.swapchain_loader
+                self.fn_loader
+                    .swapchain_device()?
                     .destroy_swapchain(head.swapchain, None);
-                head.surface_loader.destroy_surface(head.surface, None);
+
+                self.fn_loader
+                    .surface_instance()?
+                    .destroy_surface(head.surface, None);
 
                 self.create_info.present_mode = mode;
 
                 self.head = Some(Self::create_head(
+                    &mut self.fn_loader,
                     &self.device,
                     &mut self.allocator,
                     &self.entry,
                     &self.instance,
-                    display_h,
-                    window_h,
-                    window_size,
                     &self.physical_device,
                     &self.create_info,
+                    window_options,
                 )?);
             }
         }

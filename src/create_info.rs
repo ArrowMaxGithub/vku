@@ -1,10 +1,21 @@
 use crate::imports::*;
 
+pub struct WindowOptions<T> {
+    pub(crate) handle: T,
+    pub(crate) size: [u32; 2],
+}
+
+impl<T> WindowOptions<T> {
+    pub fn new(handle: T, size: [u32; 2]) -> Self {
+        Self { handle, size }
+    }
+}
+
 /// Creation parameters for [VkInit](crate::init::VkInit).
 ///
 /// Windowing extensions are enabled automatically depending on the chosen platform.
 
-pub struct VkInitCreateInfo {
+pub struct VkInitCreateInfo<'a> {
     pub app_name: String,
     pub engine_name: String,
     pub app_version: u32,
@@ -20,9 +31,9 @@ pub struct VkInitCreateInfo {
 
     //PhysicalDevice
     pub allow_igpu: bool,
-    pub physical_device_1_1_features: PhysicalDeviceVulkan11Features,
-    pub physical_device_1_2_features: PhysicalDeviceVulkan12Features,
-    pub physical_device_1_3_features: PhysicalDeviceVulkan13Features,
+    pub physical_device_1_1_features: PhysicalDeviceVulkan11Features<'a>,
+    pub physical_device_1_2_features: PhysicalDeviceVulkan12Features<'a>,
+    pub physical_device_1_3_features: PhysicalDeviceVulkan13Features<'a>,
 
     //Device
     pub additional_device_extensions: Vec<String>,
@@ -37,7 +48,7 @@ pub struct VkInitCreateInfo {
     pub clear_depth_stencil_value: ClearDepthStencilValue,
 }
 
-impl VkInitCreateInfo {
+impl<'a> VkInitCreateInfo<'a> {
     /// Suitable for debug builds against Vulkan 1.3 with all available information:
     /// - validation enabled
     /// - best practices and synchronization checks enabled
@@ -71,17 +82,17 @@ impl VkInitCreateInfo {
                 | DebugUtilsMessageTypeFlagsEXT::VALIDATION
                 | DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
             allow_igpu: false,
-            physical_device_1_3_features: PhysicalDeviceVulkan13Features::builder()
+            physical_device_1_3_features: PhysicalDeviceVulkan13Features::default()
                 .synchronization2(true)
-                .dynamic_rendering(true)
-                .build(),
-            physical_device_1_2_features: PhysicalDeviceVulkan12Features::builder()
+                .dynamic_rendering(true),
+
+            physical_device_1_2_features: PhysicalDeviceVulkan12Features::default()
                 .descriptor_binding_sampled_image_update_after_bind(true)
-                .descriptor_indexing(true)
-                .build(),
-            physical_device_1_1_features: PhysicalDeviceVulkan11Features::builder()
-                .shader_draw_parameters(true)
-                .build(),
+                .descriptor_indexing(true),
+
+            physical_device_1_1_features: PhysicalDeviceVulkan11Features::default()
+                .shader_draw_parameters(true),
+
             additional_device_extensions: vec![],
             surface_format: if cfg!(target_os = "linux") {
                 Format::B8G8R8A8_UNORM
@@ -143,7 +154,7 @@ impl VkInitCreateInfo {
     }
 }
 
-impl Default for VkInitCreateInfo {
+impl<'a> Default for VkInitCreateInfo<'a> {
     /// Default options are suitable for a debug build against Vulkan 1.3.
     fn default() -> Self {
         Self::debug_vk_1_3()
