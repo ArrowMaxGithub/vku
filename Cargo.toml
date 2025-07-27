@@ -16,10 +16,10 @@ ash = {version = "0.38", default-features = false, features = ["debug"]}
 ash-window = "0.13"
 raw-window-handle = { version = "0.6", features = ["std"] }
 log = "0.4"
-thiserror = "1.0"
-gpu-allocator = { git = "https://github.com/Traverse-Research/gpu-allocator", branch = "ash-0.38" }
+thiserror = "2"
+gpu-allocator = {version = "0.27", default-features = false, features = ["vulkan"]}
 
-shaderc = { version = "0.8", optional = true }
+shaderc = { version = "0.9", optional = true }
 
 [dev-dependencies]
 winit = "0.29"
