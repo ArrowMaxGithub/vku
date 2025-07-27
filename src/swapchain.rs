@@ -51,12 +51,8 @@ impl<'a> VkInit<'a> {
             head.surface_info = surface_info;
 
             //recreate swapchain
-            let swapchain = Self::create_swapchain(
-                &self.fn_loader,
-                &head.surface,
-                &head.surface_info,
-                window_options.size,
-            )?;
+            let swapchain =
+                Self::create_swapchain(&self.fn_loader, &head.surface, &head.surface_info)?;
             let (swapchain_images, swapchain_image_views) = Self::create_swapchain_images(
                 &self.fn_loader,
                 &self.device,
@@ -67,21 +63,12 @@ impl<'a> VkInit<'a> {
             head.swapchain = swapchain;
             head.swapchain_images = swapchain_images;
             head.swapchain_image_views = swapchain_image_views;
-            head.surface_info.current_extent = Extent2D {
-                width: window_options.size[0],
-                height: window_options.size[1],
-            };
 
             //recreate depth image
-            let extent = Extent3D {
-                width: window_options.size[0],
-                height: window_options.size[1],
-                depth: 1,
-            };
             head.depth_image = VMAImage::create_depth_image(
                 &self.device,
                 &mut self.allocator,
-                extent,
+                &head.surface_info,
                 head.depth_format,
                 head.depth_format_sizeof,
             )?;
