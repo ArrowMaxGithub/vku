@@ -9,23 +9,33 @@ unsafe impl Sync for Error {}
 pub enum Error {
     #[error("corresponding function loader was not loaded: {0}")]
     FnLoaderNotInitialized(String),
+
     #[error("called function which requires a head on headless instance")]
     HeadCallOnHeadlessInstance,
+
     #[error("no suitable GPU was found to create the physical device")]
     NoSuitableGPUFound,
+
     #[error("device extension was requested but is not supported: {0}")]
     RequiredDeviceExtensionNotSupported(String),
+
     #[error("requested surface format is not supported by the surface")]
     RequestedSurfaceFormatNotSupported,
+
     #[error("more frames in flight were requested than the surface supports")]
     InsufficientFramesInFlightSupported,
+
     #[error("requested present mode is not supported by the surface")]
     PresentModeNotSupported,
 
     #[error("the requested image layout transition is not supported from: {0:?} to: {1:?}")]
     UnsupportedImageLayoutTransition(ImageLayout, ImageLayout),
+
     #[error("tried to set data on an unmapped buffer")]
     WriteAttemptToUnmappedBuffer,
+
+    #[error("tried to write past the length of mapped buffer. Buffer allocation size: {0:?} bytes. Write offset: {1:?} bytes. Write length: {2:?} bytes")]
+    WriteAttemptOverflow(usize, usize, usize),
 
     #[error("the file extension of the shader could not be handled")]
     UnknownShaderFileExtension,

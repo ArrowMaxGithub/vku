@@ -179,6 +179,10 @@ impl VMABuffer {
             return Err(Error::WriteAttemptToUnmappedBuffer);
         };
 
+        if offset + data.len() > self.allocation.size() as usize / size_of::<T>(){
+            return Err(Error::WriteAttemptOverflow(self.allocation.size() as usize, offset, data.len() * size_of::<T>()));
+        }
+
         let mut ptr = ptr.as_ptr() as *mut T;
         unsafe {
             ptr = ptr.add(offset);
