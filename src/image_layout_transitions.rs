@@ -51,6 +51,13 @@ pub fn get_image_layout_transition_barrier2(
             PipelineStageFlags2::TRANSFER,
         ),
 
+        (ImageLayout::SHADER_READ_ONLY_OPTIMAL, ImageLayout::TRANSFER_SRC_OPTIMAL) => (
+            AccessFlags2::SHADER_READ,
+            AccessFlags2::TRANSFER_READ,
+            PipelineStageFlags2::FRAGMENT_SHADER,
+            PipelineStageFlags2::TRANSFER,
+        ),
+
         (ImageLayout::SHADER_READ_ONLY_OPTIMAL, ImageLayout::PRESENT_SRC_KHR) => (
             AccessFlags2::SHADER_READ,
             AccessFlags2::COLOR_ATTACHMENT_READ,
@@ -114,8 +121,10 @@ pub fn get_image_layout_transition_barrier2(
             PipelineStageFlags2::FRAGMENT_SHADER,
         ),
 
-        (_, _) => {
-            return Err(Error::UnsupportedImageLayoutTransition);
+        (src_stage, dst_stage) => {
+            return Err(Error::UnsupportedImageLayoutTransition(
+                src_stage, dst_stage,
+            ));
         }
     };
 
