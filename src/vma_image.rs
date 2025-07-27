@@ -1,6 +1,6 @@
 use gpu_allocator::vulkan::AllocationScheme;
 
-use crate::{image_layout_transitions, imports::*, vma_buffer::VMABuffer, VkInit};
+use crate::{image_layout_transitions, imports::*, vma_buffer::VMABuffer, SurfaceInfo, VkInit};
 
 /// Allocated image, image information, image view, allocation and allocation information.
 ///
@@ -161,10 +161,16 @@ impl VMAImage {
     pub fn create_depth_image(
         device: &Device,
         allocator: &mut Allocator,
-        extent: Extent3D,
+        surface_info: &SurfaceInfo,
         format: Format,
         sizeof: usize,
     ) -> Result<VMAImage, Error> {
+        let extent = Extent3D {
+            width: surface_info.current_extent.width,
+            height: surface_info.current_extent.height,
+            depth: 1,
+        };
+
         let image_info = ImageCreateInfo {
             image_type: ImageType::TYPE_2D,
             format,
