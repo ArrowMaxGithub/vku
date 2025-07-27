@@ -14,7 +14,6 @@ impl<T> WindowOptions<T> {
 /// Creation parameters for [VkInit](crate::init::VkInit).
 ///
 /// Windowing extensions are enabled automatically depending on the chosen platform.
-
 pub struct VkInitCreateInfo<'a> {
     pub app_name: String,
     pub engine_name: String,
@@ -48,7 +47,7 @@ pub struct VkInitCreateInfo<'a> {
     pub clear_depth_stencil_value: ClearDepthStencilValue,
 }
 
-impl<'a> VkInitCreateInfo<'a> {
+impl VkInitCreateInfo<'_> {
     /// Suitable for debug builds against Vulkan 1.3 with all available information:
     /// - validation enabled
     /// - best practices and synchronization checks enabled
@@ -60,7 +59,6 @@ impl<'a> VkInitCreateInfo<'a> {
     /// [ShaderDrawParameters](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_shader_draw_parameters.html),
     /// and [Synchronization2](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_synchronization2.html)
     /// are enabled by default.
-
     pub fn verbose_debug_vk_1_3() -> Self {
         Self {
             app_name: String::from("Default app name"),
@@ -154,7 +152,7 @@ impl<'a> VkInitCreateInfo<'a> {
     }
 }
 
-impl<'a> Default for VkInitCreateInfo<'a> {
+impl Default for VkInitCreateInfo<'_> {
     /// Default options are suitable for a debug build against Vulkan 1.3.
     fn default() -> Self {
         Self::debug_vk_1_3()

@@ -2,12 +2,11 @@ use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 
 use crate::{create_info::WindowOptions, imports::*, VMAImage, VkInit};
 
-impl<'a> VkInit<'a> {
+impl VkInit<'_> {
     /// Utility function to recreate the swapchain, swapchain images and image views.
     ///
     /// Function waits for device_wait_idle before destroying the swapchain.
     /// Images must be transitioned to the appropriate image layout after recreation.
-
     pub fn on_resize<T: HasDisplayHandle + HasWindowHandle>(
         &mut self,
         window_options: WindowOptions<T>,
