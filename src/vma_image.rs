@@ -109,7 +109,6 @@ impl VMAImage {
     ///
     /// let image = init.create_empty_image(extent, format, format_bytes, aspect_flags)?;
     /// # Ok::<(), vku::Error>(())
-
     pub fn create_empty_image(
         device: &Device,
         allocator: &mut Allocator,
@@ -275,7 +274,6 @@ impl VMAImage {
     ///
     /// image.set_staging_data(&data)?;
     /// # Ok::<(), vku::Error>(())
-
     pub fn set_staging_data<T>(&self, data: &[T]) -> Result<(), Error>
     where
         T: Sized + Copy + Clone,
@@ -334,7 +332,6 @@ impl VMAImage {
     /// )?;
     /// # Ok::<(), vku::Error>(())
     /// ```
-
     pub fn enque_copy_from_staging_buffer_to_image(
         &self,
         device: &Device,
@@ -375,7 +372,6 @@ impl VMAImage {
     /// **Defaults**:
     /// - src_queue: 0
     /// - dst_queue: 0
-
     pub fn get_image_layout_transition_barrier2(
         &mut self,
         dst_layout: ImageLayout,
@@ -396,9 +392,8 @@ impl VMAImage {
     }
 }
 
-impl<'a> VkInit<'a> {
+impl VkInit<'_> {
     /// Shortcut - see [VMAImage](VMAImage::create_empty_image) for example.
-
     pub fn create_empty_image(
         &mut self,
         extent: Extent3D,

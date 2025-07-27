@@ -129,7 +129,6 @@ impl<'a> VkInit<'a> {
     /// let init = VkInit::new(Some(window_options), create_info)?;
     /// # Ok::<(), vku::Error>(())
     /// ```
-
     pub fn new<T: HasDisplayHandle + HasWindowHandle>(
         window_options: Option<WindowOptions<T>>,
         create_info: VkInitCreateInfo<'a>,
@@ -661,7 +660,6 @@ impl<'a> VkInit<'a> {
     /// Gets the queue and queue family index for the given [CmdType].
     ///
     /// If there is e.g. no dedicated compute queue, this will fallback to the guarenteed unified queue.
-
     pub fn get_queue(&self, cmd_type: CmdType) -> (Queue, u32) {
         match cmd_type {
             CmdType::Any => (

@@ -64,7 +64,6 @@ impl VMABuffer {
     /// let buffer = VMABuffer::create_local_buffer(&init.device, &mut init.allocator, size, usage)?;
     /// let buffer_shortcut = init.create_local_buffer(size, usage)?;
     /// # Ok::<(), vku::Error>(())
-
     pub fn create_local_buffer(
         device: &Device,
         allocator: &mut Allocator,
@@ -107,7 +106,6 @@ impl VMABuffer {
     /// let buffer = VMABuffer::create_cpu_to_gpu_buffer(&init.device, &mut init.allocator, size, usage)?;
     /// let buffer_shortcut = init.create_cpu_to_gpu_buffer(size, usage)?;
     /// # Ok::<(), vku::Error>(())
-
     pub fn create_cpu_to_gpu_buffer(
         device: &Device,
         allocator: &mut Allocator,
@@ -176,7 +174,6 @@ impl VMABuffer {
     /// buffer.set_data(offset, &data)?;
     /// # Ok::<(), vku::Error>(())
     /// ```
-
     pub fn set_data<T>(&self, offset: usize, data: &[T]) -> Result<(), Error> {
         let Some(ptr) = self.allocation.mapped_ptr() else {
             return Err(Error::WriteAttemptToUnmappedBuffer);
@@ -229,7 +226,6 @@ impl VMABuffer {
     /// buffer.set_data_with_start_data(&start_data, &data)?;
     /// # Ok::<(), vku::Error>(())
     /// ```
-
     pub fn set_data_with_start_data<T, U>(
         &self,
         start_data: &[U],
@@ -295,7 +291,6 @@ impl VMABuffer {
     ///     )?;
     /// # Ok::<(), vku::Error>(())
     /// ```
-
     pub fn enqueue_copy_to_buffer(
         &self,
         device: &Device,
@@ -359,7 +354,6 @@ impl VMABuffer {
     /// # Ok::<(), vku::Error>(())
     /// ```
     #[allow(clippy::too_many_arguments)]
-
     pub fn get_barrier2(
         &self,
         src_stage: PipelineStageFlags2,
@@ -386,7 +380,7 @@ impl VMABuffer {
     }
 }
 
-impl<'a> VkInit<'a> {
+impl VkInit<'_> {
     /// Shortcut - see [VMABuffer](VMABuffer::create_local_buffer) for example.
     pub fn create_local_buffer(
         &mut self,
