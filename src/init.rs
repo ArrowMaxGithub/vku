@@ -466,8 +466,7 @@ impl<'a> VkInit<'a> {
             return Err(Error::HeadCallOnHeadlessInstance);
         };
         let (index, sub_optimal) = unsafe {
-            let loader = ash::khr::swapchain::Device::new(&self.instance, &self.device);
-            loader.acquire_next_image(
+            self.fn_loader.swapchain_device()?.acquire_next_image(
                 head.swapchain,
                 1000 * 1000 * 1000, //One second
                 acquire_img_semaphore,
@@ -1081,8 +1080,14 @@ impl<'a> VkInit<'a> {
             min_extent: capabilities.min_image_extent,
             max_extent: capabilities.max_image_extent,
             current_extent: Extent2D {
-                width: window_options.size[0],
-                height: window_options.size[1],
+                width: window_options.size[0].clamp(
+                    capabilities.min_image_extent.width,
+                    capabilities.max_image_extent.width,
+                ),
+                height: window_options.size[1].clamp(
+                    capabilities.min_image_extent.height,
+                    capabilities.max_image_extent.height,
+                ),
             },
             present_mode,
             image_count: requested_img_count,
@@ -1098,20 +1103,15 @@ impl<'a> VkInit<'a> {
         fn_loader: &FnLoader,
         surface: &SurfaceKHR,
         surface_info: &SurfaceInfo,
-        window_size: [u32; 2],
     ) -> Result<SwapchainKHR, Error> {
         let loader = fn_loader.swapchain_device()?;
 
-        let window_extent = Extent2D {
-            width: window_size[0],
-            height: window_size[1],
-        };
         let swapchain_create_info = SwapchainCreateInfoKHR::default()
             .surface(*surface)
             .min_image_count(surface_info.image_count)
             .image_color_space(surface_info.color_format.color_space)
             .image_format(surface_info.color_format.format)
-            .image_extent(window_extent)
+            .image_extent(surface_info.current_extent)
             .image_usage(ImageUsageFlags::COLOR_ATTACHMENT)
             .image_sharing_mode(SharingMode::EXCLUSIVE)
             .composite_alpha(CompositeAlphaFlagsKHR::OPAQUE)
@@ -1135,6 +1135,7 @@ impl<'a> VkInit<'a> {
         let loader = fn_loader.swapchain_device()?;
 
         let images = loader.get_swapchain_images(*swapchain)?;
+
         let mut image_views = Vec::new();
         for image in &images {
             let create_view_info = ImageViewCreateInfo::default()
@@ -1166,17 +1167,12 @@ impl<'a> VkInit<'a> {
     pub(crate) unsafe fn create_depth_image(
         device: &Device,
         allocator: &mut Allocator,
-        window_size: [u32; 2],
+        surface_info: &SurfaceInfo,
         format: Format,
         sizeof: usize,
     ) -> Result<VMAImage, Error> {
-        let depth_extent = Extent3D {
-            width: window_size[0],
-            height: window_size[1],
-            depth: 1,
-        };
         let depth_image =
-            VMAImage::create_depth_image(device, allocator, depth_extent, format, sizeof)?;
+            VMAImage::create_depth_image(device, allocator, surface_info, format, sizeof)?;
 
         trace!("Created depth images");
         Ok(depth_image)
@@ -1211,14 +1207,13 @@ impl<'a> VkInit<'a> {
             create_info,
             &window_options,
         )?;
-        let swapchain =
-            Self::create_swapchain(fn_loader, &surface, &surface_info, window_options.size)?;
+        let swapchain = Self::create_swapchain(fn_loader, &surface, &surface_info)?;
         let (swapchain_images, swapchain_image_views) =
             Self::create_swapchain_images(fn_loader, device, &swapchain, &surface_info)?;
         let depth_image = Self::create_depth_image(
             device,
             allocator,
-            window_options.size,
+            &surface_info,
             create_info.depth_format,
             create_info.depth_format_sizeof,
         )?;
