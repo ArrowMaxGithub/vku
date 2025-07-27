@@ -20,7 +20,6 @@ use std::path::Path;
 ///
 /// Only a single entry point main() is allowed.
 #[allow(unused_must_use)]
-
 pub fn compile_all_shaders(
     src_dir_path: &Path,
     target_dir_path: &Path,
@@ -30,9 +29,9 @@ pub fn compile_all_shaders(
     remove_dir_all(target_dir_path);
     create_dir_all(target_dir_path)?;
 
-    let compiler = shaderc::Compiler::new().ok_or(Error::ShaderCInit)?;
+    let compiler = shaderc::Compiler::new()?;
 
-    let mut compiler_options = shaderc::CompileOptions::new().ok_or(Error::ShaderCInit)?;
+    let mut compiler_options = shaderc::CompileOptions::new()?;
     if debug {
         compiler_options.set_optimization_level(shaderc::OptimizationLevel::Zero);
         compiler_options.set_generate_debug_info();
@@ -101,9 +100,9 @@ pub fn shader_ad_hoc(
     shader_ext: &str,
     debug: bool,
 ) -> Result<CompilationArtifact, Error> {
-    let compiler = shaderc::Compiler::new().ok_or(Error::ShaderCInit)?;
+    let compiler = shaderc::Compiler::new()?;
 
-    let mut compiler_options = shaderc::CompileOptions::new().ok_or(Error::ShaderCInit)?;
+    let mut compiler_options = shaderc::CompileOptions::new()?;
     if debug {
         compiler_options.set_optimization_level(shaderc::OptimizationLevel::Zero);
         compiler_options.set_generate_debug_info();
