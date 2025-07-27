@@ -24,13 +24,6 @@ impl FnLoader {
                 "debug utils device".to_string(),
             ))
     }
-    pub(crate) fn swapchain_instance(&self) -> Result<&ash::khr::swapchain::Instance, Error> {
-        self.swapchain_instance
-            .as_ref()
-            .ok_or(Error::FnLoaderNotInitialized(
-                "swapchain instance".to_string(),
-            ))
-    }
     pub(crate) fn swapchain_device(&self) -> Result<&ash::khr::swapchain::Device, Error> {
         self.swapchain_device
             .as_ref()
