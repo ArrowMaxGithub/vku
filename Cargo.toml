@@ -17,9 +17,9 @@ ash-window = "0.13"
 raw-window-handle = { version = "0.6", features = ["std"] }
 log = "0.4"
 thiserror = "2"
-gpu-allocator = {version = "0.27", default-features = false, features = ["vulkan"]}
+gpu-allocator = {version = "0.28", default-features = false, features = ["vulkan", "std"]}
 
-shaderc = { version = "0.9", optional = true }
+shaderc = { version = "0.10", optional = true }
 
 [dev-dependencies]
 winit = "0.29"
