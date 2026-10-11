@@ -34,6 +34,9 @@ pub enum Error {
     #[error("tried to set data on an unmapped buffer")]
     WriteAttemptToUnmappedBuffer,
 
+    #[error("tried to set data on a misaligned buffer")]
+    WriteAttemptToMisalignedBuffer,
+
     #[error("tried to write past the length of mapped buffer. Buffer allocation size: {0:?} bytes. Write offset: {1:?} bytes. Write length: {2:?} bytes")]
     WriteAttemptOverflow(usize, usize, usize),
 

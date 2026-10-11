@@ -179,8 +179,12 @@ impl VMABuffer {
             return Err(Error::WriteAttemptToUnmappedBuffer);
         };
 
-        if offset + data.len() > self.allocation.size() as usize / size_of::<T>(){
-            return Err(Error::WriteAttemptOverflow(self.allocation.size() as usize, offset, data.len() * size_of::<T>()));
+        if offset + data.len() * size_of::<T>() > self.allocation.size() as usize {
+            return Err(Error::WriteAttemptOverflow(
+                self.allocation.size() as usize,
+                offset,
+                data.len() * size_of::<T>(),
+            ));
         }
 
         let mut ptr = ptr.as_ptr() as *mut T;
@@ -226,11 +230,11 @@ impl VMABuffer {
     /// let buffer = init.create_cpu_to_gpu_buffer(size, usage)?;
     ///
     /// let start_data = [4_u32, 2_u32];
-    /// let data = [42.0; 1024];
+    /// let data = [42.0_f32; 1024];
     /// buffer.set_data_with_start_data(&start_data, &data)?;
     /// # Ok::<(), vku::Error>(())
     /// ```
-    pub fn set_data_with_start_data<T, U>(
+    pub fn set_data_with_start_data<U, T>(
         &self,
         start_data: &[U],
         data: &[T],
@@ -239,10 +243,18 @@ impl VMABuffer {
             return Err(Error::WriteAttemptToUnmappedBuffer);
         };
 
+        let offset = start_data.len() * size_of::<U>();
+        if offset + data.len() * size_of::<T>() > self.allocation.size() as usize {
+            return Err(Error::WriteAttemptOverflow(
+                self.allocation.size() as usize,
+                offset,
+                data.len() * size_of::<T>(),
+            ));
+        }
+
         let ptr = ptr.as_ptr() as *mut U;
         unsafe {
             ptr.copy_from_nonoverlapping(start_data.as_ptr(), start_data.len());
-
             let offset_ptr = ptr.add(start_data.len()) as *mut T;
             offset_ptr.copy_from_nonoverlapping(data.as_ptr(), data.len());
         };
@@ -367,7 +379,7 @@ impl VMABuffer {
         src_queue: Option<u32>,
         dst_queue: Option<u32>,
         size: Option<u64>,
-    ) -> BufferMemoryBarrier2 {
+    ) -> BufferMemoryBarrier2<'_> {
         let src_queue = src_queue.unwrap_or(0);
         let dst_queue = dst_queue.unwrap_or(0);
         let size = size.unwrap_or(self.allocation.size());
@@ -382,9 +394,28 @@ impl VMABuffer {
             .dst_queue_family_index(dst_queue)
             .size(size)
     }
+
+    #[allow(unused, reason = "unstable")]
+    fn mapped_slice_mut<T>(&mut self) -> Result<&mut [T], Error> {
+        let Some(slice) = self.allocation.mapped_slice_mut() else {
+            return Err(Error::WriteAttemptToUnmappedBuffer);
+        };
+
+        if slice.len() % size_of::<T>() != 0 || slice.as_ptr() as usize % align_of::<T>() != 0 {
+            return Err(Error::WriteAttemptToMisalignedBuffer);
+        }
+
+        let len = slice.len() / size_of::<T>();
+        unsafe {
+            Ok(std::slice::from_raw_parts_mut(
+                slice.as_mut_ptr().cast::<T>(),
+                len,
+            ))
+        }
+    }
 }
 
-impl VkInit<'_> {
+impl VkInit {
     /// Shortcut - see [VMABuffer](VMABuffer::create_local_buffer) for example.
     pub fn create_local_buffer(
         &mut self,
