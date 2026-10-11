@@ -104,10 +104,11 @@ impl VMAImage {
     ///
     /// let extent = Extent3D{width: 100, height: 100, depth: 1};
     /// let format = Format::R8G8B8A8_UNORM;
+    /// let samples = SampleCountFlags::TYPE_1;
     /// let format_bytes = 4;
     /// let aspect_flags = ImageAspectFlags::COLOR;
     ///
-    /// let image = init.create_empty_image(extent, format, format_bytes, aspect_flags)?;
+    /// let image = init.create_empty_image(extent, format, format_bytes, samples, aspect_flags)?;
     /// # Ok::<(), vku::Error>(())
     pub fn create_empty_image(
         device: &Device,
@@ -115,6 +116,7 @@ impl VMAImage {
         extent: Extent3D,
         format: Format,
         sizeof: usize,
+        samples: SampleCountFlags,
         aspect_mask: ImageAspectFlags,
     ) -> Result<VMAImage, Error> {
         let image_info = ImageCreateInfo {
@@ -123,7 +125,7 @@ impl VMAImage {
             extent,
             mip_levels: 1,
             array_layers: 1,
-            samples: SampleCountFlags::TYPE_1,
+            samples,
             tiling: ImageTiling::OPTIMAL,
             usage: ImageUsageFlags::SAMPLED
                 | ImageUsageFlags::TRANSFER_DST
@@ -268,8 +270,9 @@ impl VMAImage {
     /// let extent = Extent3D{width: 100, height: 100, depth: 1};
     /// let format = Format::R8G8B8A8_UNORM;
     /// let format_bytes = 4;
+    /// let samples = SampleCountFlags::TYPE_1;
     /// let aspect_flags = ImageAspectFlags::COLOR;
-    /// let image = init.create_empty_image(extent, format, format_bytes, aspect_flags)?;
+    /// let image = init.create_empty_image(extent, format, format_bytes, samples, aspect_flags)?;
     /// let data = [42_u32; 100*100];
     ///
     /// image.set_staging_data(&data)?;
@@ -303,8 +306,9 @@ impl VMAImage {
     /// # let extent = Extent3D{width: 100, height: 100, depth: 1};
     /// # let format = Format::R8G8B8A8_UNORM;
     /// # let format_bytes = 4;
+    /// # let samples = SampleCountFlags::TYPE_1;
     /// # let aspect_flags = ImageAspectFlags::COLOR;
-    /// let mut image = init.create_empty_image(extent, format, format_bytes, aspect_flags)?;
+    /// let mut image = init.create_empty_image(extent, format, format_bytes, samples, aspect_flags)?;
     ///
     /// let image_barrier = image.get_image_layout_transition_barrier2(
     ///     ImageLayout::TRANSFER_DST_OPTIMAL,
@@ -377,7 +381,7 @@ impl VMAImage {
         dst_layout: ImageLayout,
         src_queue: Option<u32>,
         dst_queue: Option<u32>,
-    ) -> Result<ImageMemoryBarrier2, Error> {
+    ) -> Result<ImageMemoryBarrier2<'_>, Error> {
         let barrier = image_layout_transitions::get_image_layout_transition_barrier2(
             &self.image,
             self.current_layout,
@@ -392,13 +396,14 @@ impl VMAImage {
     }
 }
 
-impl VkInit<'_> {
+impl VkInit {
     /// Shortcut - see [VMAImage](VMAImage::create_empty_image) for example.
     pub fn create_empty_image(
         &mut self,
         extent: Extent3D,
         format: Format,
         format_sizeof: usize,
+        samples: SampleCountFlags,
         aspect_mask: ImageAspectFlags,
     ) -> Result<VMAImage, Error> {
         VMAImage::create_empty_image(
@@ -407,6 +412,7 @@ impl VkInit<'_> {
             extent,
             format,
             format_sizeof,
+            samples,
             aspect_mask,
         )
     }

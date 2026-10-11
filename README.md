@@ -52,7 +52,7 @@ fn main() -> Result<(), vku::Error>{
  ## Managed Image allocation and tracked layout transitions:
 ```rust,no_run
 use vku::{VkInit, CmdType};
-use ash::vk::{Extent3D, Format, ImageAspectFlags, ImageLayout};
+use ash::vk::{Extent3D, Format, SampleCountFlags, ImageAspectFlags, ImageLayout};
 fn main() -> Result<(), vku::Error>{
     let vk_init: VkInit = todo!();
     
@@ -67,8 +67,9 @@ fn main() -> Result<(), vku::Error>{
     let extent = Extent3D{width: 100, height: 100, depth: 1};
     let format = Format::R8G8B8A8_UNORM;
     let format_bytes = 4;
+    let samples = SampleCountFlags::TYPE_1;
     let aspect_flags = ImageAspectFlags::COLOR;
-    let mut image = vk_init.create_empty_image(extent, format, format_bytes, aspect_flags)?;
+    let mut image = vk_init.create_empty_image(extent, format, format_bytes, samples, aspect_flags)?;
     
     let image_barrier = image.get_image_layout_transition_barrier2(
         ImageLayout::TRANSFER_DST_OPTIMAL,
