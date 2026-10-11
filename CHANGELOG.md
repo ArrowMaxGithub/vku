@@ -1,4 +1,9 @@
-### [Unreleased] Ash 0.38
+### [Unreleased]
+- Removed lifetime from VkInit and VkCreateInfo since pNext is unused for VkPhysicalDeviceVulkan1{1,2,3}Features 
+- Include SampleCountFlags in VMAImage constructor for multisampled images.
+- Updated gpu-allocator to 0.28 and shaderc to 0.10
+
+### [0.4.0] Ash 0.38
 - Updated to raw-window-handle 0.6 and ash 0.38
 - Changed: VkInit::new and Vkinit::on_resize now take one combined Option<WindowOptions> for windowed or headless applications. 
 - Changed: VKUPipelineBuilder::with_descriptors() now takes a [DescriptorInfo] to create DescriptorSetLayoutBindings and DescriptorBindingFlags.
