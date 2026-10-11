@@ -63,7 +63,7 @@ mod tests {
         pub vec_3: [f32; 4],
     }
 
-    fn default_vk_init() -> Result<VkInit<'static>, Error> {
+    fn default_vk_init() -> Result<VkInit, Error> {
         use vku::VkInitCreateInfo;
         use winit::dpi::LogicalSize;
         use winit::event_loop::{EventLoop, EventLoopBuilder};

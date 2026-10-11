@@ -15,7 +15,7 @@ use crate::{imports::*, VMAImage};
 /// - Swapchain recreation and resizing
 /// - Optionally exposed dedicated compute and transfer queues
 /// - Shortcuts for present and submit operations
-pub struct VkInit<'a> {
+pub struct VkInit {
     /// [GPU-Allocator](gpu-allocator::vulkan::Allocator)
     pub allocator: ManuallyDrop<Allocator>,
     pub entry: Entry,
@@ -33,7 +33,7 @@ pub struct VkInit<'a> {
     pub compute_queue: Option<Queue>,
     pub physical_device_info: PhysicalDeviceInfo,
     pub head: Option<Head>,
-    pub create_info: VkInitCreateInfo<'a>,
+    pub create_info: VkInitCreateInfo,
 }
 
 /// Wrapper around presentation resources.
@@ -101,7 +101,7 @@ pub struct SurfaceInfo {
     pub pre_transform: SurfaceTransformFlagsKHR,
 }
 
-impl<'a> VkInit<'a> {
+impl VkInit {
     /// Creates a new VkInit Vulkan wrapper from raw display and window handles.
     ///
     /// All creation parameters are provided via [VkInitCreateInfo].
@@ -131,7 +131,7 @@ impl<'a> VkInit<'a> {
     /// ```
     pub fn new<T: HasDisplayHandle + HasWindowHandle>(
         window_options: Option<WindowOptions<T>>,
-        create_info: VkInitCreateInfo<'a>,
+        create_info: VkInitCreateInfo,
     ) -> Result<Self, Error> {
         unsafe {
             let display_h = match &window_options {
@@ -991,14 +991,7 @@ impl<'a> VkInit<'a> {
             instance: instance.clone(),
             device: device.clone(),
             physical_device: *physical_device,
-            debug_settings: AllocatorDebugSettings {
-                log_memory_information: false,
-                log_leaks_on_shutdown: true,
-                store_stack_traces: false,
-                log_allocations: false,
-                log_frees: false,
-                log_stack_traces: false,
-            },
+            debug_settings: AllocatorDebugSettings::default(),
             buffer_device_address: false,
             allocation_sizes: AllocationSizes::default(),
         };
@@ -1038,6 +1031,7 @@ impl<'a> VkInit<'a> {
 
         let surface =
             ash_window::create_surface(entry, instance, raw_display_h, raw_window_h, None)?;
+
         let formats = loader.get_physical_device_surface_formats(*physical_device, surface)?;
 
         let color_format = *formats

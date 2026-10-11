@@ -14,7 +14,7 @@ impl<T> WindowOptions<T> {
 /// Creation parameters for [VkInit](crate::init::VkInit).
 ///
 /// Windowing extensions are enabled automatically depending on the chosen platform.
-pub struct VkInitCreateInfo<'a> {
+pub struct VkInitCreateInfo {
     pub app_name: String,
     pub engine_name: String,
     pub app_version: u32,
@@ -30,9 +30,9 @@ pub struct VkInitCreateInfo<'a> {
 
     //PhysicalDevice
     pub allow_igpu: bool,
-    pub physical_device_1_1_features: PhysicalDeviceVulkan11Features<'a>,
-    pub physical_device_1_2_features: PhysicalDeviceVulkan12Features<'a>,
-    pub physical_device_1_3_features: PhysicalDeviceVulkan13Features<'a>,
+    pub physical_device_1_1_features: PhysicalDeviceVulkan11Features<'static>,
+    pub physical_device_1_2_features: PhysicalDeviceVulkan12Features<'static>,
+    pub physical_device_1_3_features: PhysicalDeviceVulkan13Features<'static>,
 
     //Device
     pub additional_device_extensions: Vec<String>,
@@ -47,7 +47,7 @@ pub struct VkInitCreateInfo<'a> {
     pub clear_depth_stencil_value: ClearDepthStencilValue,
 }
 
-impl VkInitCreateInfo<'_> {
+impl VkInitCreateInfo {
     /// Suitable for debug builds against Vulkan 1.3 with all available information:
     /// - validation enabled
     /// - best practices and synchronization checks enabled
@@ -152,7 +152,7 @@ impl VkInitCreateInfo<'_> {
     }
 }
 
-impl Default for VkInitCreateInfo<'_> {
+impl Default for VkInitCreateInfo {
     /// Default options are suitable for a debug build against Vulkan 1.3.
     fn default() -> Self {
         Self::debug_vk_1_3()

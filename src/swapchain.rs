@@ -2,7 +2,7 @@ use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 
 use crate::{create_info::WindowOptions, imports::*, VMAImage, VkInit};
 
-impl VkInit<'_> {
+impl VkInit {
     /// Utility function to recreate the swapchain, swapchain images and image views.
     ///
     /// Function waits for device_wait_idle before destroying the swapchain.

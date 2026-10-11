@@ -7,7 +7,7 @@ pub fn get_image_layout_transition_barrier2(
     aspect_flags: ImageAspectFlags,
     src_queue: Option<u32>,
     dst_queue: Option<u32>,
-) -> Result<ImageMemoryBarrier2, Error> {
+) -> Result<ImageMemoryBarrier2<'_>, Error> {
     let (src_access, dst_access, src_stage, dst_stage) = match (src_layout, dst_layout) {
         (ImageLayout::UNDEFINED, ImageLayout::TRANSFER_DST_OPTIMAL) => (
             AccessFlags2::empty(),

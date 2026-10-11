@@ -11,7 +11,7 @@ pub struct ComputeShader {
     group_sizes: [u32; 3],
 }
 
-impl VkInit<'_> {
+impl VkInit {
     /// Only SSBOs are supported as bindings.
     ///
     /// Group sizes are read in as specialization constants: layout(local_size_x_id = 0, local_size_y_id = 1, local_size_z_id = 2) in;
